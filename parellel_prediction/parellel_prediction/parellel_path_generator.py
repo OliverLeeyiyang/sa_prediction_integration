@@ -68,6 +68,7 @@ class SelfUtils():
         return q
 
 
+# Main class for parellel path generation
 class PathGenerator():
 
     def __init__(self, time_horizon, sampling_time_interval, min_crosswalk_user_velocity):
@@ -76,9 +77,9 @@ class PathGenerator():
         self.time_horizon = time_horizon
         self.sampling_time_interval = sampling_time_interval
         self.min_crosswalk_user_velocity = min_crosswalk_user_velocity
+
         self.object = TrackedObject()
         self.ref_path = PosePath()
-
         self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.object_callback, 10)
         
         #Test
@@ -109,12 +110,13 @@ class PathGenerator():
         return path
 
 
+# This class is for testing methods
 class TestClass():
 
     def __init__(self):
         self.su = SelfUtils()
 
-    def test_method(self):
+    def test_method_in_selfutils(self):
         self.x = 1.0
         self.y = 1.0
         self.z = 1.0
@@ -153,7 +155,7 @@ class ParellelPathGeneratorNode(Node):
 def main():
     rclpy.init()
     tc = TestClass()
-    tc.test_method()
+    tc.test_method_in_selfutils()
 
 
 if __name__ == '__main__':
