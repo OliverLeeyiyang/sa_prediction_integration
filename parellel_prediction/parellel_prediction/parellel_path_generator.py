@@ -21,6 +21,7 @@ from autoware_auto_perception_msgs.msg import TrackedObjectKinematics
 from autoware_auto_perception_msgs.msg import TrackedObjects
 
 from typing import List, Tuple
+# Here are still to be modified!
 EntryPoint = Tuple[np.ndarray, np.ndarray]
 FrenetPath = List[np.ndarray]
 PosePath = List[Pose]
@@ -33,10 +34,12 @@ input_topic_map = '/map/vector_map'
 output_topic_objects = '/perception/object_recognition/objects'
 
 
-# Methods are all in class SelfUtils
+
 class SelfUtils():
+    '''Methods for PathGenerator class, tested in TestClass.'''
     def __init__(self):
-        print('SelfUtils class is created')
+        print('SelfUtils class is ready!')
+
 
     # Methods:
     def calc_offset_pose(self, p: gmsgs.Pose, x: float, y: float, z: float) -> gmsgs.Pose:
@@ -71,8 +74,12 @@ class SelfUtils():
         return q
 
 
-# Main class for parellel path generation
+
 class PathGenerator():
+    ''' Genertate path for other vehicles and crosswalk users
+        Input:      TrackedObjects
+        Parameters: time_horizon, sampling_time_interval, min_crosswalk_user_velocity
+        Output:     PredictedPath'''
 
     def __init__(self, time_horizon, sampling_time_interval, min_crosswalk_user_velocity):
         self.su = SelfUtils()
@@ -107,13 +114,19 @@ class PathGenerator():
             path.path.append(future_obj_pose)
         
         return path
+    
+
+    def generatePolynomialPath(self, object: TrackedObject, ref_path: PosePath) -> PredictedPath:
+        pass
 
 
-# This class is for testing methods
+
 class TestClass():
+    '''Test methods from SelfUtils class and PathGenerator class'''
 
     def __init__(self):
         self.su = SelfUtils()
+
 
     def test_method_in_selfutils(self):
         self.x = 1.0
@@ -145,7 +158,12 @@ class TestClass():
         print('New pose is: ', new_pose)
 
 
+
 class ParellelPathGeneratorNode(Node):
+    ''' Node for generating path for other vehicles and crosswalk users.
+        Input topics:   /perception/object_recognition/tracking/objects
+                        /map/vector_map
+        Output topics:  /perception/object_recognition/objects'''
 
     def __init__(self, time_horizon, sampling_time_interval, min_crosswalk_user_velocity):
         super().__init__('parellel_path_generator_node')
@@ -164,6 +182,7 @@ def main():
     # rclpy.spin(tc)
     # tc.destroy_node()
     # rclpy.shutdown()
+
 
 
 if __name__ == '__main__':
