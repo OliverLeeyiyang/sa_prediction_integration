@@ -33,6 +33,11 @@ input_topic_map = '/map/vector_map'
 # output topics
 output_topic_objects = '/perception/object_recognition/objects'
 
+# Parameters
+time_horizon = 10.0
+sampling_time_interval = 0.1
+min_crosswalk_user_velocity = 0.1
+
 
 
 class SelfUtils():
@@ -77,7 +82,7 @@ class SelfUtils():
 
 class PathGenerator():
     ''' Genertate path for other vehicles and crosswalk users
-        Input:      TrackedObjects
+        Input:      TrackedObjects, PosePath
         Parameters: time_horizon, sampling_time_interval, min_crosswalk_user_velocity
         Output:     PredictedPath'''
 
@@ -98,6 +103,21 @@ class PathGenerator():
         #test
         self.test_path = self.generateStraightPath(self.object)
         self.test_path_pub.publish(self.test_path)
+    
+
+    def generatePathForNonVehicleObject(self, object: TrackedObject) -> PredictedPath:
+        return self.generateStraightPath(object)
+    
+
+    def generatePathForOffLaneVehicle(self, object: TrackedObject) -> PredictedPath:
+        return self.generateStraightPath(object)
+    
+
+    def generatePathForOnLaneVehicle(self, object: TrackedObject, ref_path: PosePath) -> PredictedPath:
+        if len(ref_path) < 2:
+            return self.generateStraightPath(object)
+        else:
+            return self.generatePolynomialPath(object, ref_path)
 
 
     def generateStraightPath(self, object: TrackedObject) -> PredictedPath:
@@ -122,10 +142,11 @@ class PathGenerator():
 
 
 class TestClass():
-    '''Test methods from SelfUtils class and PathGenerator class'''
+    '''Test methods in SelfUtils class and ParellelPathGeneratorNode class'''
 
     def __init__(self):
         self.su = SelfUtils()
+        self.ppgn = ParellelPathGeneratorNode(time_horizon, sampling_time_interval, min_crosswalk_user_velocity)
 
 
     def test_method_in_selfutils(self):
@@ -156,6 +177,10 @@ class TestClass():
         print('Original Pose is: ', self.pose)
         new_pose = self.su.calc_offset_pose(self.pose, self.x, self.y, self.z)
         print('New pose is: ', new_pose)
+    
+
+    def test_ppgn(self):
+        pass
 
 
 
