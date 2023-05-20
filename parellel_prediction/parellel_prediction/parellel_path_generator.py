@@ -27,7 +27,10 @@ PosePath = List[Pose]
 
 # input topics
 input_topic_objects = '/perception/object_recognition/tracking/objects'
+input_topic_map = '/map/vector_map'
 
+# output topics
+output_topic_objects = '/perception/object_recognition/objects'
 
 
 # Methods are all in class SelfUtils
@@ -80,11 +83,7 @@ class PathGenerator():
 
         self.object = TrackedObject()
         self.ref_path = PosePath()
-        self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.object_callback, 10)
-        
-        #Test
-        self.test_path = PredictedPath()
-        self.test_path_pub = self.create_publisher(PredictedPath, '/test_pub', 10)
+
 
     def object_callback(self, msg: TrackedObjects):
         self.object = msg.objects[0]
@@ -148,14 +147,23 @@ class TestClass():
 
 class ParellelPathGeneratorNode(Node):
 
-    def __init__(self):
+    def __init__(self, time_horizon, sampling_time_interval, min_crosswalk_user_velocity):
         super().__init__('parellel_path_generator_node')
+        self.ppgn = PathGenerator(time_horizon, sampling_time_interval, min_crosswalk_user_velocity)
+
+        self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.ppgn.object_callback, 10)
+        self.pred_objects_pub = self.create_publisher(PredictedObjects, output_topic_objects, 10)
+
 
 
 def main():
     rclpy.init()
     tc = TestClass()
-    tc.test_method_in_selfutils()
+    # tc.test_method_in_selfutils()
+
+    # rclpy.spin(tc)
+    # tc.destroy_node()
+    # rclpy.shutdown()
 
 
 if __name__ == '__main__':
