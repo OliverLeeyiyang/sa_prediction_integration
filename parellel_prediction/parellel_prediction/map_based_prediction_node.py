@@ -32,12 +32,21 @@ class ParellelPathGeneratorNode(Node):
                         /map/vector_map
         Output topics:  /perception/object_recognition/objects'''
 
-    def __init__(self, time_horizon, sampling_time_interval, min_crosswalk_user_velocity):
+    def __init__(self, time_horizon_, sampling_time_interval_, min_crosswalk_user_velocity_):
         super().__init__('parellel_path_generator_node')
-        self.ppgn = PathGenerator(time_horizon, sampling_time_interval, min_crosswalk_user_velocity)
 
-        self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.ppgn.object_callback, 10)
+        self.ppgn = PathGenerator(time_horizon_, sampling_time_interval_, min_crosswalk_user_velocity_)
+
+        self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.object_callback, 10)
         self.pred_objects_pub = self.create_publisher(PredictedObjects, output_topic_objects, 10)
+    
+
+    def object_callback(self, msg: TrackedObjects):
+        self.object = msg.objects[0]
+
+        #test
+        self.test_path = self.generateStraightPath(self.object)
+        self.test_path_pub.publish(self.test_path)
 
 
 def main():

@@ -1,5 +1,4 @@
 import rclpy
-from rclpy.node import Node
 import numpy as np
 from .self_utils import SelfUtils
 
@@ -8,8 +7,8 @@ import autoware_auto_perception_msgs.msg._predicted_objects as apmsg_pos
 import autoware_auto_perception_msgs.msg._tracked_objects as apmsg_tos
 
 from geometry_msgs.msg import Pose, PoseStamped, Twist
-import tf2_geometry_msgs as tf2_gmsgs
-import geometry_msgs.msg as gmsgs
+# import tf2_geometry_msgs as tf2_gmsgs
+# import geometry_msgs.msg as gmsgs
 
 # namespeces in cpp file
 from autoware_auto_perception_msgs.msg import ObjectClassification
@@ -22,22 +21,10 @@ from autoware_auto_perception_msgs.msg import TrackedObjectKinematics
 from autoware_auto_perception_msgs.msg import TrackedObjects
 
 from typing import List, Tuple
-# Here are still to be modified!
+# Here is still needed to be modified!
 EntryPoint = Tuple[np.ndarray, np.ndarray]
 FrenetPath = List[np.ndarray]
 PosePath = List[Pose]
-
-# input topics
-input_topic_objects = '/perception/object_recognition/tracking/objects'
-input_topic_map = '/map/vector_map'
-
-# output topics
-output_topic_objects = '/perception/object_recognition/objects'
-
-# Parameters
-time_horizon = 10.0
-sampling_time_interval = 0.1
-min_crosswalk_user_velocity = 0.1
 
 
 
@@ -47,24 +34,16 @@ class PathGenerator():
         Parameters: time_horizon, sampling_time_interval, min_crosswalk_user_velocity
         Output:     PredictedPath'''
 
-    def __init__(self, time_horizon, sampling_time_interval, min_crosswalk_user_velocity):
+    def __init__(self, time_horizon_, sampling_time_interval_, min_crosswalk_user_velocity_):
         self.su = SelfUtils()
 
-        self.time_horizon = time_horizon
-        self.sampling_time_interval = sampling_time_interval
-        self.min_crosswalk_user_velocity = min_crosswalk_user_velocity
+        self.time_horizon = time_horizon_
+        self.sampling_time_interval = sampling_time_interval_
+        self.min_crosswalk_user_velocity = min_crosswalk_user_velocity_
 
         self.object = TrackedObject()
         self.ref_path = PosePath()
 
-
-    def object_callback(self, msg: TrackedObjects):
-        self.object = msg.objects[0]
-
-        #test
-        self.test_path = self.generateStraightPath(self.object)
-        self.test_path_pub.publish(self.test_path)
-    
 
     def generatePathForNonVehicleObject(self, object: TrackedObject) -> PredictedPath:
         return self.generateStraightPath(object)
