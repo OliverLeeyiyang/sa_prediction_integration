@@ -1,4 +1,5 @@
 from .parellel_path_generator import PathGenerator
+from .from_tier4_utils import Tier4Utils
 
 import rclpy
 from rclpy.node import Node
@@ -12,6 +13,9 @@ from autoware_auto_perception_msgs.msg import PredictedPath
 from autoware_auto_perception_msgs.msg import TrackedObject
 from autoware_auto_perception_msgs.msg import TrackedObjectKinematics
 from autoware_auto_perception_msgs.msg import TrackedObjects
+
+import autoware_auto_mapping_msgs.msg as map_msgs
+
 
 # input topics
 input_topic_objects = '/perception/object_recognition/tracking/objects'
@@ -34,9 +38,11 @@ class ParellelPathGeneratorNode(Node):
     Topics
     --------------------
 
-    Input topics  :  /perception/object_recognition/tracking/objects and /map/vector_map
+    Input topics  :     /perception/object_recognition/tracking/objects : autoware_auto_perception_msgs/TrackedObjects
+    
+                        /map/vector_map : autoware_auto_mapping_msgs/msg/HADMapBin
 
-    Output topics : /perception/object_recognition/objects
+    Output topics :     /perception/object_recognition/objects : autoware_auto_perception_msgs/PredictedObjects
 
     --------------------
     '''
@@ -45,10 +51,10 @@ class ParellelPathGeneratorNode(Node):
         super().__init__('parellel_path_generator_node')
 
         self.pg = PathGenerator(time_horizon_, sampling_time_interval_, min_crosswalk_user_velocity_)
-
-        self.object = TrackedObject()
+        self.tu = Tier4Utils()
 
         self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.object_callback, 10)
+        self.map_sub = self.create_subscription(map_msgs.HADMapBin, input_topic_map, self.map_callback, 10)
         self.pred_objects_pub = self.create_publisher(PredictedObjects, output_topic_objects, 10)
 
         # Test topic for predicted path: PredictedPath()
@@ -56,14 +62,51 @@ class ParellelPathGeneratorNode(Node):
         self.flag = False
     
 
-    def object_callback(self, msg: TrackedObjects):
-        self.object = msg.objects
+    def map_callback(self, msg: map_msgs.HADMapBin):
+        self.get_logger().info('[Map Based Prediction]: Start loading lanelet')
+        # TODO: Load map
+        self.get_logger().info('[Map Based Prediction]: Map is loaded')
 
-        # Test generateStraightPath
-        pred_path = self.pg.generateStraightPath(self.object)
-        self.flag = True
-        print('got pred path!')
-        self.path_pub.publish(pred_path)
+
+    def object_callback(self, in_objects: TrackedObjects):
+        # TODO: Guard for map pointer and frame transformation(line 561)
+        # TODO: world,map and bask_link transform
+        # TODO: Remove old objects information in object history(line 582)
+
+        # result output
+        output = PredictedObjects()
+        output.header = in_objects.header
+        output.header.frame_id = 'map'
+
+        # Didn't do: debug_markers
+
+        # Deal woth each object
+        for object in in_objects.objects:
+            object_id = self.tu.toHexString(object.object_id)
+            transformed_object = TrackedObject()
+            # transformed_object = object
+
+            # TODO: transform object frame if it's based on map frame(line 603)
+
+            # get tracking label and update it for the prediction
+            tracking_label = transformed_object.classification.label
+            # TODO: new method in this class changeLabelForPrediction
+            
+    
+    def changeLabelForPrediction(self, label: ObjectClassification.label) -> ObjectClassification.label:
+        # for car like vehicle do not change labels
+        if label == ObjectClassification.CAR or label == ObjectClassification.BUS\
+             or label == ObjectClassification.TRUCK or label == ObjectClassification.TRAILER or label == ObjectClassification.UNKNOWN:
+            return label
+        # for bicycle and motorcycle
+        elif label == ObjectClassification.MOTORCYCLE or label == ObjectClassification.BICYCLE:
+            # TODO: change laber setting(line 440)
+            return label
+        # for pedestrian
+        elif label == ObjectClassification.PEDESTRIAN:
+            return label
+
+
 
 
 
