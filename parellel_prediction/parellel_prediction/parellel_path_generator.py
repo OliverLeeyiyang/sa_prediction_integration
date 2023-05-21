@@ -20,11 +20,11 @@ from autoware_auto_perception_msgs.msg import TrackedObject
 from autoware_auto_perception_msgs.msg import TrackedObjectKinematics
 from autoware_auto_perception_msgs.msg import TrackedObjects
 
-from typing import List, Tuple
+""" from typing import List, Tuple
 # Here is still needed to be modified!
 EntryPoint = Tuple[np.ndarray, np.ndarray]
 FrenetPath = List[np.ndarray]
-PosePath = List[Pose]
+PosePath = List[Pose] """
 
 
 
@@ -42,7 +42,7 @@ class PathGenerator():
         self.min_crosswalk_user_velocity = min_crosswalk_user_velocity_
 
         self.object = TrackedObject()
-        self.ref_path = PosePath()
+        # self.ref_path = PosePath()
 
 
     def generatePathForNonVehicleObject(self, object: TrackedObject) -> PredictedPath:
@@ -52,13 +52,13 @@ class PathGenerator():
     def generatePathForOffLaneVehicle(self, object: TrackedObject) -> PredictedPath:
         return self.generateStraightPath(object)
     
-
+    """ 
     def generatePathForOnLaneVehicle(self, object: TrackedObject, ref_path: PosePath) -> PredictedPath:
         if len(ref_path) < 2:
             return self.generateStraightPath(object)
         else:
             return self.generatePolynomialPath(object, ref_path)
-
+    """
 
     def generateStraightPath(self, object: TrackedObject) -> PredictedPath:
         object_pose = object.kinematics.pose_with_covariance.pose
@@ -75,9 +75,10 @@ class PathGenerator():
         
         return path
     
-
+    '''
     def generatePolynomialPath(self, object: TrackedObject, ref_path: PosePath) -> PredictedPath:
         pass
+    '''
 
 
 
