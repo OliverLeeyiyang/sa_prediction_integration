@@ -86,14 +86,39 @@ class ParellelPathGeneratorNode(Node):
             transformed_object = TrackedObject()
             # transformed_object = object
 
-            # TODO: transform object frame if it's based on map frame(line 603)
+            # TODO: transform object frame if it's based on map frame(line 599)
 
             # get tracking label and update it for the prediction
             tracking_label = transformed_object.classification.label
-            # TODO: new method in this class changeLabelForPrediction
+            label = self.changeLabelForPrediction(tracking_label)
+
+            # For crosswalk user, don't consider this situation now.(line 612)
+            if label == ObjectClassification.PEDESTRIAN or label == ObjectClassification.BICYCLE:
+                continue
+            # For road user
+            elif label == ObjectClassification.CAR or label == ObjectClassification.BUS or label == ObjectClassification.TRAILER\
+                    or label == ObjectClassification.MOTORCYCLE or label == ObjectClassification.TRUCK:
+                # TODO: A lot of things to do(line 620-722)
+                continue
+            # For unknown. (line 725)
+            else:
+                continue
+        
+        # Publish results
+        self.pred_objects_pub.publish(output)
             
-    
-    def changeLabelForPrediction(self, label: ObjectClassification.label) -> ObjectClassification.label:
+
+    # TODO: finish this method for case 2 and 3. And input lanelet_map_ptr should be lanelet::LaneletMapPtr
+    def changeLabelForPrediction(self, label: ObjectClassification.label, object: TrackedObject, lanlet_map_ptr) -> ObjectClassification.label:
+        ''' Change label for prediction.
+
+            Case 1: For CAR, BUS, TRUCK, TRAILER, UNKNOWN, do not change label.
+
+            Case 2: For BICYCLE and MOTORCYCLE(unimplemented yet)
+
+            Case 3: For PEDESTRIAN(unimplemented yet)
+
+        '''
         # for car like vehicle do not change labels
         if label == ObjectClassification.CAR or label == ObjectClassification.BUS\
              or label == ObjectClassification.TRUCK or label == ObjectClassification.TRAILER or label == ObjectClassification.UNKNOWN:
@@ -105,6 +130,15 @@ class ParellelPathGeneratorNode(Node):
         # for pedestrian
         elif label == ObjectClassification.PEDESTRIAN:
             return label
+        # TODO: new method in this class withinRoadLanelet for case 2 and 3(line 261)
+
+    
+    # TODO: getPredictedObjectAsCrosswalkUser
+    def getPredictedObjectAsCrosswalkUser(self, object: TrackedObject) -> PredictedObject:
+        ''' Get predicted object as crosswalk user.
+
+        '''
+        pass
 
 
 
