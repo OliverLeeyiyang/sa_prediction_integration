@@ -55,7 +55,7 @@ class TestClass(Node):
         self.pose.position.z = self.z
         self.pose.orientation = self.su.createQuaternion(0.0, 0.0, 0.0, 1.0)
         print('Original Pose is: ', self.pose)
-        new_pose = self.su.calc_offset_pose(self.pose, self.x, self.y, self.z)
+        new_pose = self.su.calcoffsetpose(self.pose, self.x, self.y, self.z)
         print('New pose is: ', new_pose)
     
 

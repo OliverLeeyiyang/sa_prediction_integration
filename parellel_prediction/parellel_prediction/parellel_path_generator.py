@@ -1,4 +1,6 @@
 import rclpy
+from rclpy.duration import Duration
+
 import numpy as np
 from .self_utils import SelfUtils
 
@@ -67,10 +69,10 @@ class PathGenerator():
         duration = self.time_horizon + ep
 
         path = PredictedPath()
-        path.time_step = rclpy.Duration.from_seconds(self.sampling_time_interval)
+        path.time_step = Duration.to_msg(Duration(seconds = self.sampling_time_interval))
         path.path = []
-        for dt in np.range(0.0, duration, self.sampling_time_interval):
-            future_obj_pose = self.su.calc_offset_pose(object_pose, object_twist.linear.x * dt, object_twist.linear.y * dt, 0.0)
+        for dt in np.arange(0.0, duration, self.sampling_time_interval):
+            future_obj_pose = self.su.calcoffsetpose(object_pose, object_twist.linear.x * dt, object_twist.linear.y * dt, 0.0)
             path.path.append(future_obj_pose)
         
         return path

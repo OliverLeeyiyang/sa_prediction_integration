@@ -9,7 +9,7 @@ class SelfUtils():
 
 
     # Methods:
-    def calc_offset_pose(self, p: gmsgs.Pose, x: float, y: float, z: float) -> gmsgs.Pose:
+    def calcoffsetpose(self, p: gmsgs.Pose, x: float, y: float, z: float) -> gmsgs.Pose:
         new_pose = gmsgs.Pose()
         transform = gmsgs.TransformStamped()
         transform.transform.translation = self.createTranslation(x, y, z)

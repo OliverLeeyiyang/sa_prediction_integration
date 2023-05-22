@@ -1,10 +1,13 @@
 from .parellel_path_generator import PathGenerator
 from .from_tier4_utils import Tier4Utils
+from .self_utils import SelfUtils
 
 import rclpy
 from rclpy.node import Node
+import math
 
-# namespeces in cpp file
+
+# Import message types
 from autoware_auto_perception_msgs.msg import ObjectClassification
 from autoware_auto_perception_msgs.msg import PredictedObject
 from autoware_auto_perception_msgs.msg import PredictedObjectKinematics
@@ -13,8 +16,11 @@ from autoware_auto_perception_msgs.msg import PredictedPath
 from autoware_auto_perception_msgs.msg import TrackedObject
 from autoware_auto_perception_msgs.msg import TrackedObjectKinematics
 from autoware_auto_perception_msgs.msg import TrackedObjects
+from autoware_auto_perception_msgs.msg import DetectedObjectKinematics
 
 import autoware_auto_mapping_msgs.msg as map_msgs
+from tf_transformations import euler_from_quaternion
+
 
 
 # input topics
@@ -22,7 +28,8 @@ input_topic_objects = '/perception/object_recognition/tracking/objects'
 input_topic_map = '/map/vector_map'
 
 # output topics
-output_topic_objects = '/perception/object_recognition/objects'
+# output_topic_objects = '/perception/object_recognition/objects'
+pareller_output_topic = '/parellel/objects'
 
 # Parameters
 time_horizon = 10.0
@@ -44,6 +51,8 @@ class ParellelPathGeneratorNode(Node):
 
     Output topics :     /perception/object_recognition/objects : autoware_auto_perception_msgs/PredictedObjects
 
+                        /parellel/objects (Use this for testing)
+
     --------------------
     '''
 
@@ -52,20 +61,18 @@ class ParellelPathGeneratorNode(Node):
 
         self.pg = PathGenerator(time_horizon_, sampling_time_interval_, min_crosswalk_user_velocity_)
         self.tu = Tier4Utils()
+        self.su = SelfUtils()
 
         self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.object_callback, 10)
         self.map_sub = self.create_subscription(map_msgs.HADMapBin, input_topic_map, self.map_callback, 10)
-        self.pred_objects_pub = self.create_publisher(PredictedObjects, output_topic_objects, 10)
-
-        # Test topic for predicted path: PredictedPath()
-        self.path_pub = self.create_publisher(PredictedPath, '/test_pred_path', 10)
-        self.flag = False
+        self.pred_objects_pub = self.create_publisher(PredictedObjects, pareller_output_topic, 10)
     
 
     def map_callback(self, msg: map_msgs.HADMapBin):
-        self.get_logger().info('[Map Based Prediction]: Start loading lanelet')
+        # self.get_logger().info('[Map Based Prediction]: Start loading lanelet')
         # TODO: Load map
-        self.get_logger().info('[Map Based Prediction]: Map is loaded')
+        # self.get_logger().info('[Map Based Prediction]: Map is loaded')
+        pass
 
 
     def object_callback(self, in_objects: TrackedObjects):
@@ -80,36 +87,118 @@ class ParellelPathGeneratorNode(Node):
 
         # Didn't do: debug_markers
 
-        # Deal woth each object
+        # Deal with each object
         for object in in_objects.objects:
+            # seems like this is not necessary
             object_id = self.tu.toHexString(object.object_id)
-            transformed_object = TrackedObject()
-            # transformed_object = object
 
-            # TODO: transform object frame if it's based on map frame(line 599)
+            transformed_object = TrackedObject()
+            transformed_object = object
+
+            # TODO: transform object frame if it's not based on map frame(line 599), need to use transform
 
             # get tracking label and update it for the prediction
-            tracking_label = transformed_object.classification.label
+            #tracking_label = transformed_object.classification.label
+            tracking_label = 1
             label = self.changeLabelForPrediction(tracking_label)
 
-            # For crosswalk user, don't consider this situation now.(line 612)
+            # TODO: For crosswalk user, don't consider this situation now.(line 612)
             if label == ObjectClassification.PEDESTRIAN or label == ObjectClassification.BICYCLE:
                 continue
             # For road user
             elif label == ObjectClassification.CAR or label == ObjectClassification.BUS or label == ObjectClassification.TRAILER\
                     or label == ObjectClassification.MOTORCYCLE or label == ObjectClassification.TRUCK:
-                # TODO: A lot of things to do(line 620-722)
-                continue
-            # For unknown. (line 725)
+                # Update object yaw and velocity
+                # self.updateObjectData(transformed_object)
+
+                # TODO: Get Closest Lanelet (line 624)
+                # current_lanelets = 
+
+                # TODO: Update Objects History (line 627)
+
+                # TODO: For off lane obstacles
+
+                # TODO: For too-slow vehicle
+
+                # Get Predicted Reference Path for Each Maneuver and current lanelets
+                # return: <probability, paths>
+
+                # If predicted reference path is empty, assume this object is out of the lane
+
+                # Didn't do: Get Debug Marker for On Lane Vehicles
+
+                # TODO: Generate Predicted Path
+
+                # TODO: Normalize Path Confidence and output the predicted object
+
+                # Test
+                predicted_object = self.convertToPredictedObject(transformed_object)
+                predicted_path = self.pg.generatePathForNonVehicleObject(transformed_object)
+                predicted_path.confidence = 1.0
+
+                predicted_object.kinematics.predicted_paths.append(predicted_path)
+                output.objects.append(predicted_object)
+
+            # For unknown object (line 725)
+            # Use this part to test PathGenerator.generateStraightPath
             else:
-                continue
+                predicted_object = self.convertToPredictedObject(transformed_object)
+                predicted_path = self.pg.generatePathForNonVehicleObject(transformed_object)
+                predicted_path.confidence = 1.0
+
+                predicted_object.kinematics.predicted_paths.append(predicted_path)
+                output.objects.append(predicted_object)
         
         # Publish results
         self.pred_objects_pub.publish(output)
+    
+
+    def convertToPredictedKinematics(self, tracked_object: TrackedObjectKinematics) -> PredictedObjectKinematics:
+        output = PredictedObjectKinematics()
+        output.initial_pose_with_covariance = tracked_object.pose_with_covariance
+        output.initial_twist_with_covariance = tracked_object.twist_with_covariance
+        output.initial_acceleration_with_covariance = tracked_object.acceleration_with_covariance
+
+        return output
+    
+
+    def convertToPredictedObject(self, tracked_object: TrackedObject) -> PredictedObject:
+        predicted_object = PredictedObject()
+        predicted_object.kinematics = self.convertToPredictedKinematics(tracked_object.kinematics)
+        predicted_object.classification = tracked_object.classification
+        predicted_object.object_id = tracked_object.object_id
+        predicted_object.shape = tracked_object.shape
+        predicted_object.existence_probability = tracked_object.existence_probability
+
+        return predicted_object
+
+
+    def updateObjectData(self, object: TrackedObject):
+        if object.kinematics.orientation_availability == DetectedObjectKinematics.AVAILABLE:
+            return
+        
+        # Compute yaw angle from the velocity and position of the object
+        object_pose = object.kinematics.pose_with_covariance.pose
+        object_twist = object.kinematics.twist_with_covariance.twist
+        future_object_pose = self.su.calcoffsetpose(object_pose, object_twist.linear.x * 0.1, object_twist.linear.y * 0.1, 0.0)
+
+        if object_twist.linear.x < 0.0:
+            if object.kinematics.orientation_availability == DetectedObjectKinematics.SIGN_UNKNOWN:
+                original_yaw = euler_from_quaternion(object.kinematics.pose_with_covariance.pose.orientation)[2]
+                # flip the angle
+                object.kinematics.pose_with_covariance.pose.orientation = self.tu.createQuaternionFromYaw(original_yaw + math.pi)
+            else:
+                update_object_yaw = self.tu.calcAzimuthAngle(object_pose.position, future_object_pose.position)
+                object.kinematics.pose_with_covariance.pose.orientation = self.tu.createQuaternionFromYaw(update_object_yaw)
             
+            object.kinematics.twist_with_covariance.twist.linear.x *= -1.0
+        
+        return
+    
 
     # TODO: finish this method for case 2 and 3. And input lanelet_map_ptr should be lanelet::LaneletMapPtr
-    def changeLabelForPrediction(self, label: ObjectClassification.label, object: TrackedObject, lanlet_map_ptr) -> ObjectClassification.label:
+    # still have two inputs: object: TrackedObject, lanlet_map_ptr: LaneletMapPtr
+    def changeLabelForPrediction(self, label: ObjectClassification.label) -> ObjectClassification.label:
         ''' Change label for prediction.
 
             Case 1: For CAR, BUS, TRUCK, TRAILER, UNKNOWN, do not change label.
