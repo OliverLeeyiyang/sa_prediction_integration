@@ -1,8 +1,12 @@
+# System and Projects imports
 import unique_identifier_msgs.msg._uuid as uuid
 import geometry_msgs.msg as gmsgs
 import tf2_geometry_msgs as tf2_gmsgs
+
+# Outside imports
 import tf_transformations 
 import math
+
 
 
 class Tier4Utils():
@@ -35,6 +39,7 @@ class Tier4Utils():
 
 def main():
     pass
+
 
 
 if __name__ == '__main__':

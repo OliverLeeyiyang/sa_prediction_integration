@@ -7,14 +7,18 @@
   <maintainer email="ge89yes@tum.de">oliver</maintainer>
   <license>TODO: License declaration</license>
 
-  <depend>rclpy</depend>
+  <depend>autoware_auto_perception_msgs</depend>
+  <depend>autoware_auto_mapping_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>tf2_geometry_msgs</depend>
-  <depend>numpy</depend>
-  <depend>interpolation</depend>
-  <depend>typing</depend>
+  <depend>std_msgs</depend>
 
-  <exec_depend>autoware_auto_perception_msgs</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>numpy</exec_depend>
+  <exec_depend>typing</exec_depend>
+  <exec_depend>unique_identifier_msgs</exec_depend>
+  <exec_depend>tf_transformations</exec_depend>
+  <exec_depend>math</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

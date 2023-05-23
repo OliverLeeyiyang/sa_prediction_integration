@@ -1,11 +1,6 @@
-from .parellel_path_generator import PathGenerator
-from .from_tier4_utils import Tier4Utils
-from .self_utils import SelfUtils
-
+# System and Projects imports
 import rclpy
 from rclpy.node import Node
-import math
-
 
 # Import message types
 from autoware_auto_perception_msgs.msg import ObjectClassification
@@ -19,8 +14,15 @@ from autoware_auto_perception_msgs.msg import TrackedObjects
 from autoware_auto_perception_msgs.msg import DetectedObjectKinematics
 
 import autoware_auto_mapping_msgs.msg as map_msgs
+
+# Outside imports
+import math
 from tf_transformations import euler_from_quaternion
 
+# Local imports
+from .parellel_path_generator import PathGenerator
+from .from_tier4_utils import Tier4Utils
+from .self_utils import SelfUtils
 
 
 # input topics
@@ -228,8 +230,6 @@ class ParellelPathGeneratorNode(Node):
 
         '''
         pass
-
-
 
 
 

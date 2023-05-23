@@ -1,5 +1,7 @@
+# System and Projects imports
 import tf2_geometry_msgs as tf2_gmsgs
 import geometry_msgs.msg as gmsgs
+
 
 
 class SelfUtils():
@@ -44,6 +46,7 @@ class SelfUtils():
 
 def main():
     pass
+
 
 
 if __name__ == '__main__':
