@@ -33,7 +33,14 @@ class Tier4Utils():
     def calcAzimuthAngle(p_from: gmsgs.Point, p_to: gmsgs.Point) -> float:
         dx = p_to.x - p_from.x
         dy = p_to.y - p_from.y
+
         return math.atan2(dy, dx)
+    
+
+    def getYawFromQuaternion(q: gmsgs.Quaternion) -> float:
+        euler = tf_transformations.euler_from_quaternion(q)
+
+        return euler[2]
 
 
 

@@ -20,14 +20,11 @@ from autoware_auto_perception_msgs.msg import TrackedObjects
 # Local imports
 from .self_utils import SelfUtils
 
-from typing import List, Tuple
+from typing import List, Tuple, TypedDict
 # Here is still needed to be modified! 
-# Consider using structured arrays in numpy. <https://numpy.org/doc/stable/user/basics.rec.html>
-
-# FrenePoint = List[float]
-FrenePoint = Tuple[float, float, float, float, float, float]
-#                   's', 'd', 's_vel', 'd_vel', 's_acc', 'd_acc'
-FrenetPath = List[FrenePoint]
+# can use a class to setup this type. TypeDict <https://docs.python.org/3/library/typing.html#other-special-directives>
+FrenetPoint = TypedDict('FrenetPoint', {'s': float, 'd': float, 's_vel': float, 'd_vel': float, 's_acc': float, 'd_acc': float})
+FrenetPath = List[FrenetPoint]
 Vector2d = Tuple[float, float]
 EntryPoint = Tuple[Vector2d, Vector2d]
 PosePath = List[gmsgs.Pose]
@@ -115,11 +112,11 @@ class PathGenerator():
         pass
 
 
-    def _generateFrenetPath(self, current_point: FrenePoint, target_point: FrenePoint, max_length: float) -> FrenetPath:
+    def _generateFrenetPath(self, current_point: FrenetPoint, target_point: FrenetPoint, max_length: float) -> FrenetPath:
         pass
 
 
-    def _calcLatCoefficients(self, current_point: FrenePoint, target_point: FrenePoint, T: float) -> np.ndarray:
+    def _calcLatCoefficients(self, current_point: FrenetPoint, target_point: FrenetPoint, T: float) -> np.ndarray:
         '''Lateral Path Calculation
         -------------------------------
             Quintic polynomial for d
@@ -146,7 +143,7 @@ class PathGenerator():
         pass
 
 
-    def _calcLonCoefficients(self, current_point: FrenePoint, target_point: FrenePoint, T: float):
+    def _calcLonCoefficients(self, current_point: FrenetPoint, target_point: FrenetPoint, T: float):
         ''' Longitudinal Path Calculation
         -------------------------------
             Quadric polynomial
@@ -167,7 +164,7 @@ class PathGenerator():
         pass
 
 
-    def _getFrenetPoint(self, object: TrackedObject, ref_path: PosePath) -> FrenePoint:
+    def _getFrenetPoint(self, object: TrackedObject, ref_path: PosePath) -> FrenetPoint:
         pass
 
 
