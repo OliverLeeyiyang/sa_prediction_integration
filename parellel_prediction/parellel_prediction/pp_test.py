@@ -77,6 +77,13 @@ class TestClass(Node):
         '''
         self.ppgn = ParellelPathGeneratorNode(time_horizon, sampling_time_interval, min_crosswalk_user_velocity)
         print('ParellelPathGeneratorNode class is ready!')
+    
+
+    def test_ran(self):
+        a = gmsgs.Point()
+        type_a = type(a)
+        b = type_a()
+        print(b)
         
 
 
@@ -85,6 +92,7 @@ def main(args=None):
 
     tc = TestClass()
     print('Hi from pp_test.py')
+    tc.test_ran()
     
     # tc.test_method_in_selfutils()
     # tc.test_ppgn()

@@ -19,7 +19,9 @@ from autoware_auto_perception_msgs.msg import TrackedObjects
 
 # Local imports
 from .self_utils import SelfUtils
+from .from_tier4_utils import Tier4Utils
 
+# New data types
 from typing import List, Tuple, TypedDict
 # Here is still needed to be modified! 
 # can use a class to setup this type. TypeDict <https://docs.python.org/3/library/typing.html#other-special-directives>
@@ -47,6 +49,7 @@ class PathGenerator():
 
     def __init__(self, time_horizon_, sampling_time_interval_, min_crosswalk_user_velocity_):
         self.su = SelfUtils()
+        self.tu = Tier4Utils()
 
         self.time_horizon = time_horizon_
         self.sampling_time_interval = sampling_time_interval_
@@ -163,9 +166,24 @@ class PathGenerator():
     def _convertToPredictedPath(self, object: TrackedObject, frenet_predicted_path: FrenetPath, ref_path: PosePath) -> PredictedPath:
         pass
 
-
+    # TODO: test this method and the methods it calls
     def _getFrenetPoint(self, object: TrackedObject, ref_path: PosePath) -> FrenetPoint:
-        pass
+        frenet_point = FrenetPoint()
+        obj_point = object.kinematics.pose_with_covariance.pose.position
+        nearest_segment_idx = self.tu.findNearestSegmentIndex(ref_path, obj_point)
+        l = self.tu.calcLongitudinalOffsetToSegment(ref_path, nearest_segment_idx, obj_point)
+        vx = object.kinematics.twist_with_covariance.twist.linear.x
+        vy = object.kinematics.twist_with_covariance.twist.linear.y
+        obj_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
+        lane_yaw = self.tu.getYawFromQuaternion(ref_path[nearest_segment_idx].orientation)
+        delta_yaw = obj_yaw - lane_yaw
+
+        frenet_point['s'] = self.tu.calcSignedArcLength(ref_path, 0, nearest_segment_idx) + l
+        frenet_point['d'] = self.tu.calcLateralOffset(ref_path, obj_point)
+        frenet_point['s_vel'] = vx * np.cos(delta_yaw) - vy * np.sin(delta_yaw)
+        frenet_point['d_vel'] = vx * np.sin(delta_yaw) + vy * np.cos(delta_yaw)
+        frenet_point['s_acc'] = 0.0
+        frenet_point['d_acc'] = 0.0
 
 
 
