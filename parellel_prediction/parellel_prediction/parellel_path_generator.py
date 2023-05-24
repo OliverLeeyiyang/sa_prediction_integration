@@ -23,10 +23,20 @@ from .self_utils import SelfUtils
 from typing import List, Tuple
 # Here is still needed to be modified! 
 # Consider using structured arrays in numpy. <https://numpy.org/doc/stable/user/basics.rec.html>
-FrenePoint = List[float]
-EntryPoint = Tuple[np.ndarray, np.ndarray]
+
+# FrenePoint = List[float]
+FrenePoint = Tuple[float, float, float, float, float, float]
+#                   's', 'd', 's_vel', 'd_vel', 's_acc', 'd_acc'
 FrenetPath = List[FrenePoint]
+Vector2d = Tuple[float, float]
+EntryPoint = Tuple[Vector2d, Vector2d]
 PosePath = List[gmsgs.Pose]
+
+
+# F_dtype = [('s', np.float64), ('d', np.float64), ('s_vel', np.float64), ('d_vel', np.float64), ('s_acc', np.float64), ('d_acc', np.float64)]
+# FrenetPoint = type('FrenetPoint', (np.ndarray,), {'__repr__': lambda self: f'FrenePoint({self.s}, {self.d}, {self.s_vel}, {self.d_vel}, {self.s_acc}, {self.d_acc})'})
+# FrenetPath is a list of FrenetPoint
+# FrenetPath = type('FrenetPath', (FrenePoint,), {'__repr__': lambda self: f'FrenetPath({self.FrenetPath})'})
 
 
 
@@ -50,11 +60,11 @@ class PathGenerator():
 
 
     def generatePathForNonVehicleObject(self, object: TrackedObject) -> PredictedPath:
-        return self.generateStraightPath(object)
+        return self._generateStraightPath(object)
     
 
     # TODO: generatePathToTargetPoint, not sure about the input type of point.
-    def generatePathToTargetPoint(self, object: TrackedObject, point: List[float]) -> PredictedPath:
+    def generatePathToTargetPoint(self, object: TrackedObject, point: Vector2d) -> PredictedPath:
         pass
 
 
@@ -75,17 +85,17 @@ class PathGenerator():
     
 
     def generatePathForOffLaneVehicle(self, object: TrackedObject) -> PredictedPath:
-        return self.generateStraightPath(object)
+        return self._generateStraightPath(object)
     
 
-    def generatePathForOnLaneVehicle(self, object: TrackedObject, ref_path: np.ndarray) -> PredictedPath:
+    def generatePathForOnLaneVehicle(self, object: TrackedObject, ref_path: PosePath) -> PredictedPath:
         if len(ref_path) < 2:
-            return self.generateStraightPath(object)
+            return self._generateStraightPath(object)
         else:
-            return self.generatePolynomialPath(object, ref_path)
+            return self._generatePolynomialPath(object, ref_path)
 
 
-    def generateStraightPath(self, object: TrackedObject) -> PredictedPath:
+    def _generateStraightPath(self, object: TrackedObject) -> PredictedPath:
         object_pose = object.kinematics.pose_with_covariance.pose
         object_twist = object.kinematics.twist_with_covariance.twist
         ep = 0.001
@@ -101,15 +111,15 @@ class PathGenerator():
         return path
     
     # TODO: generatePolynomialPath (line 178-208)
-    def generatePolynomialPath(self, object: TrackedObject, ref_path: PosePath) -> PredictedPath:
+    def _generatePolynomialPath(self, object: TrackedObject, ref_path: PosePath) -> PredictedPath:
         pass
 
 
-    def generateFrenetPath(self, current_point: FrenePoint, target_point: FrenePoint, max_length: float) -> FrenetPath:
+    def _generateFrenetPath(self, current_point: FrenePoint, target_point: FrenePoint, max_length: float) -> FrenetPath:
         pass
 
 
-    def calcLatCoefficients(self, current_point: FrenePoint, target_point: FrenePoint, T: float) -> np.ndarray:
+    def _calcLatCoefficients(self, current_point: FrenePoint, target_point: FrenePoint, T: float) -> np.ndarray:
         '''Lateral Path Calculation
         -------------------------------
             Quintic polynomial for d
@@ -136,7 +146,7 @@ class PathGenerator():
         pass
 
 
-    def calcLonCoefficients(self, current_point: FrenePoint, target_point: FrenePoint, T: float):
+    def _calcLonCoefficients(self, current_point: FrenePoint, target_point: FrenePoint, T: float):
         ''' Longitudinal Path Calculation
         -------------------------------
             Quadric polynomial
@@ -149,15 +159,15 @@ class PathGenerator():
         pass
 
 
-    def interpolateReferencePath(self, base_path: PosePath, frenet_predicted_path: FrenetPath) -> PosePath:
+    def _interpolateReferencePath(self, base_path: PosePath, frenet_predicted_path: FrenetPath) -> PosePath:
         pass
 
 
-    def convertToPredictedPath(self, object: TrackedObject, frenet_predicted_path: FrenetPath, ref_path: PosePath) -> PredictedPath:
+    def _convertToPredictedPath(self, object: TrackedObject, frenet_predicted_path: FrenetPath, ref_path: PosePath) -> PredictedPath:
         pass
 
 
-    def getFrenetPoint(self, object: TrackedObject, ref_path: PosePath) -> FrenePoint:
+    def _getFrenetPoint(self, object: TrackedObject, ref_path: PosePath) -> FrenePoint:
         pass
 
 
