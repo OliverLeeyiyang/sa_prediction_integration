@@ -17,48 +17,28 @@ class Tier4Utils():
     
 
     # Methods:
+
     def toHexString(self, id:uuid.UUID) -> str:
         hex_string = ""
         for i in range(16):
             hex_string += format(id.uuid[i], '02x')
         return hex_string
     
-
-    def createQuaternionFromYaw(yaw: float) -> gmsgs.Quaternion:
+    # test passed
+    def createQuaternionFromYaw(self, yaw: float) -> gmsgs.Quaternion:
         q = gmsgs.Quaternion()
         q = tf_transformations.quaternion_from_euler(0.0, 0.0, yaw)
 
         return tf2_gmsgs.to_msg_msg(q)
     
-
-    def calcAzimuthAngle(p_from: gmsgs.Point, p_to: gmsgs.Point) -> float:
+    # test passed
+    def calcAzimuthAngle(self, p_from: gmsgs.Point, p_to: gmsgs.Point) -> float:
         dx = p_to.x - p_from.x
         dy = p_to.y - p_from.y
 
         return math.atan2(dy, dx)
     
-
-    def getYawFromQuaternion(q: gmsgs.Quaternion) -> float:
-        euler = tf_transformations.euler_from_quaternion(q)
-
-        return euler[2]
-    
-
-    def findNearestSegmentIndex(self, points, point: gmsgs.Point) -> int:
-        '''find nearest segment index to point.
-
-        Segment is straight path between two continuous points of trajectory.
-
-        When point is on a trajectory point whose index is nearest_idx, return nearest_idx - 1.
-        '''
-        nearest_idx = self.findNearestIndex(points, point)
-
-        if nearest_idx == 0:
-            return 0
-        if nearest_idx == len(points) - 1:
-            return len(points) - 2
-    
-
+    # test passed
     def calcLongitudinalOffsetToSegment(self, points, seg_idx: int, p_target: gmsgs.Point, throw_exception: bool = False) -> float:
         '''calculate longitudinal offset (length along trajectory from seg_idx point to nearest point to p_target on trajectory).
         
@@ -87,15 +67,15 @@ class Tier4Utils():
                 raise RuntimeError("Same points are given.")
             return np.nan
         
-        p_front = overlap_removed_points[seg_idx]
-        p_back = overlap_removed_points[seg_idx + 1]
+        p_front = self.getPoint(overlap_removed_points[seg_idx])
+        p_back = self.getPoint(overlap_removed_points[seg_idx + 1])
 
         segment_vec = np.array([p_back.x - p_front.x, p_back.y - p_front.y, 0.0])
         target_vec = np.array([p_target.x - p_front.x, p_target.y - p_front.y, 0.0])
 
         return np.dot(segment_vec, target_vec) / np.linalg.norm(segment_vec)
 
-
+    # test passed
     def removeOverlapPoints(self, points, start_idx: int = 0) -> list:
         if len(points) < start_idx + 1:
             return points
@@ -117,7 +97,22 @@ class Tier4Utils():
         
         return dst
 
+    # test passed
+    def findNearestSegmentIndex(self, points, point: gmsgs.Point) -> int:
+        '''find nearest segment index to point.
 
+        Segment is straight path between two continuous points of trajectory.
+
+        When point is on a trajectory point whose index is nearest_idx, return nearest_idx - 1.
+        '''
+        nearest_idx = self.findNearestIndex(points, point)
+
+        if nearest_idx == 0:
+            return 0
+        if nearest_idx == len(points) - 1:
+            return len(points) - 2
+
+    # test passed
     def findNearestIndex(self, points, point: gmsgs.Point) -> int:
         self.validateNonEmpty(points)
 
@@ -132,24 +127,40 @@ class Tier4Utils():
             
         return min_idx
     
-
+    # test passed
     def validateNonEmpty(self, points):
         if len(points) == 0:
             raise ValueError("Points is empty")
+    
+    # test passed
+    def getPoint(self, point: gmsgs.Point | gmsgs.Pose) -> gmsgs.Point:
+        match type(point):
+            case gmsgs.Point:
+                return point
+            case gmsgs.Pose:
+                return point.position
+            case _:
+                raise TypeError("point must be Point or Pose")
         
-    
+    # test passed
     def calcSquaredDistance2d(self, point1, point2) -> float:
-        return (point1.x - point2.x) ** 2 + (point1.y - point2.y) ** 2
+        p1 = self.getPoint(point1)
+        p2 = self.getPoint(point2)
+        return (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2
     
-
+    # test passed
     def calcDistance2d(self, point1, point2) -> float:
-        return np.hypot(point1.x - point2.x, point1.y - point2.y)
+        p1 = self.getPoint(point1)
+        p2 = self.getPoint(point2)
+        return np.hypot(p1.x - p2.x, p1.y - p2.y)
     
-
+    # test passed
     def calcDistance3d(self, point1, point2) -> float:
-        return np.hypot(self.calcDistance2d(point1, point2), point1.z - point2.z)
+        p1 = self.getPoint(point1)
+        p2 = self.getPoint(point2)
+        return np.hypot(self.calcDistance2d(point1, point2), p1.z - p2.z)
     
-
+    # test passed
     def calcSignedArcLength(self, points, src_idx: int, dst_idx: int) -> float:
         try:
             self.validateNonEmpty(points)
@@ -166,7 +177,7 @@ class Tier4Utils():
         
         return dist_sum
     
-
+    # test passed
     def calcLateralOffset(self, points, p_target: gmsgs.Point, throw_exception: bool = False) -> float:
         '''calculate lateral offset from p_target (length from p_target to trajectory).
 
@@ -192,7 +203,7 @@ class Tier4Utils():
 
         return self.calcLateralOffset_later(points, p_target, seg_idx, throw_exception)
     
-
+    # test passed
     def calcLateralOffset_later(self, points, p_target: gmsgs.Point, seg_idx: int, throw_exception: bool = False) -> float:
         '''calculate lateral offset from p_target (length from p_target to trajectory) using given segment index. 
         
@@ -213,8 +224,8 @@ class Tier4Utils():
             if throw_exception:
                 raise RuntimeError("Same points are given.")
         
-        p_front = overlap_removed_points[seg_idx]
-        p_back = overlap_removed_points[seg_idx + 1]
+        p_front = self.getPoint(overlap_removed_points[seg_idx])
+        p_back = self.getPoint(overlap_removed_points[seg_idx + 1])
 
         segment_vec = np.array([p_back.x - p_front.x, p_back.y - p_front.y, 0.0])
         target_vec = np.array([p_target.x - p_front.x, p_target.y - p_front.y, 0.0])

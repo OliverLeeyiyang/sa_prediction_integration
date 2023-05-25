@@ -2,6 +2,9 @@
 import tf2_geometry_msgs as tf2_gmsgs
 import geometry_msgs.msg as gmsgs
 
+# Outside imports
+import tf_transformations 
+
 
 
 class SelfUtils():
@@ -41,6 +44,14 @@ class SelfUtils():
         q.w = w
 
         return q
+    
+
+    # Self defined methods to get yaw from quaternion
+    def getYawFromQuaternion(self, q: gmsgs.Quaternion) -> float:
+        euler = tf_transformations.euler_from_quaternion(q)
+
+        return euler[2]
+    
 
 
 

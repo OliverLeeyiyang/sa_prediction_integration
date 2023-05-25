@@ -1,6 +1,7 @@
 from .parellel_path_generator import PathGenerator
 from .map_based_prediction_node import ParellelPathGeneratorNode
 from .self_utils import SelfUtils
+from .from_tier4_utils import Tier4Utils
 
 import rclpy
 from rclpy.node import Node
@@ -80,11 +81,37 @@ class TestClass(Node):
     
 
     def test_ran(self):
-        a = gmsgs.Point()
-        type_a = type(a)
-        b = type_a()
-        print(b)
-        
+        self.tu = Tier4Utils()
+        point1 = gmsgs.Point()
+        point1.x = 1.0
+        point1.y = 1.0
+        point1.z = 1.0
+        point2 = gmsgs.Point()
+        point2.x = 2.0
+        point2.y = 2.0
+        point2.z = 2.0
+        point3 = gmsgs.Point()
+        point3.x = 3.0
+        point3.y = 3.0
+        point3.z = 3.0
+
+        from typing import List
+        PosePath = List[gmsgs.Pose]
+        points: PosePath = []
+        pose1 = gmsgs.Pose()
+        pose1.position = point1
+        points.append(pose1)
+        pose2 = gmsgs.Pose()
+        pose2.position = point2
+        points.append(pose2)
+        pose3 = gmsgs.Pose()
+        pose3.position = point3
+        points.append(pose3)
+        # print('idx is:', self.tu.findNearestSegmentIndex(points, point3))
+        # print('list is:', self.tu.removeOverlapPoints(points))
+        # print('dist is:', self.tu.calcLateralOffset(points, point3))
+        # print('dist is:', self.tu.calcSignedArcLength(points, 0,2))
+        # print('dist is:', self.tu.calcLongitudinalOffsetToSegment(points,1, point3))
 
 
 def main(args=None):
@@ -92,7 +119,7 @@ def main(args=None):
 
     tc = TestClass()
     print('Hi from pp_test.py')
-    tc.test_ran()
+    # tc.test_ran()
     
     # tc.test_method_in_selfutils()
     # tc.test_ppgn()

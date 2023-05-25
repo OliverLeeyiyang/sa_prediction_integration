@@ -187,7 +187,7 @@ class ParellelPathGeneratorNode(Node):
         if object_twist.linear.x < 0.0:
             if object.kinematics.orientation_availability == DetectedObjectKinematics.SIGN_UNKNOWN:
                 # original_yaw = euler_from_quaternion(object.kinematics.pose_with_covariance.pose.orientation)[2]
-                original_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
+                original_yaw = self.su.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
                 # flip the angle
                 object.kinematics.pose_with_covariance.pose.orientation = self.tu.createQuaternionFromYaw(original_yaw + math.pi)
             else:

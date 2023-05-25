@@ -23,13 +23,12 @@ from .from_tier4_utils import Tier4Utils
 
 # New data types
 from typing import List, Tuple, TypedDict
-# Here is still needed to be modified! 
 # can use a class to setup this type. TypeDict <https://docs.python.org/3/library/typing.html#other-special-directives>
 FrenetPoint = TypedDict('FrenetPoint', {'s': float, 'd': float, 's_vel': float, 'd_vel': float, 's_acc': float, 'd_acc': float})
 FrenetPath = List[FrenetPoint]
 Vector2d = Tuple[float, float]
 EntryPoint = Tuple[Vector2d, Vector2d]
-PosePath = List[gmsgs.Pose]
+PosePath = List[gmsgs.Pose] # PosePath cannot be instantiated as a class, can be used as e.g. posepath1: PosePath = []
 
 
 # F_dtype = [('s', np.float64), ('d', np.float64), ('s_vel', np.float64), ('d_vel', np.float64), ('s_acc', np.float64), ('d_acc', np.float64)]
@@ -56,7 +55,6 @@ class PathGenerator():
         self.min_crosswalk_user_velocity = min_crosswalk_user_velocity_
 
         self.object = TrackedObject()
-        # self.ref_path = PosePath()
 
 
     def generatePathForNonVehicleObject(self, object: TrackedObject) -> PredictedPath:
@@ -166,16 +164,17 @@ class PathGenerator():
     def _convertToPredictedPath(self, object: TrackedObject, frenet_predicted_path: FrenetPath, ref_path: PosePath) -> PredictedPath:
         pass
 
-    # TODO: test this method and the methods it calls
+    # TODO: test this method(TODO later) and the methods it calls(done)
     def _getFrenetPoint(self, object: TrackedObject, ref_path: PosePath) -> FrenetPoint:
         frenet_point = FrenetPoint()
         obj_point = object.kinematics.pose_with_covariance.pose.position
+
         nearest_segment_idx = self.tu.findNearestSegmentIndex(ref_path, obj_point)
         l = self.tu.calcLongitudinalOffsetToSegment(ref_path, nearest_segment_idx, obj_point)
         vx = object.kinematics.twist_with_covariance.twist.linear.x
         vy = object.kinematics.twist_with_covariance.twist.linear.y
-        obj_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
-        lane_yaw = self.tu.getYawFromQuaternion(ref_path[nearest_segment_idx].orientation)
+        obj_yaw = self.su.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
+        lane_yaw = self.su.getYawFromQuaternion(ref_path[nearest_segment_idx].orientation)
         delta_yaw = obj_yaw - lane_yaw
 
         frenet_point['s'] = self.tu.calcSignedArcLength(ref_path, 0, nearest_segment_idx) + l
