@@ -63,7 +63,6 @@ class ParellelPathGeneratorNode(Node):
 
         self.pg = PathGenerator(time_horizon_, sampling_time_interval_, min_crosswalk_user_velocity_)
         self.tu = Tier4Utils()
-        self.su = SelfUtils()
 
         self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.object_callback, 10)
         self.map_sub = self.create_subscription(map_msgs.HADMapBin, input_topic_map, self.map_callback, 10)
@@ -182,12 +181,12 @@ class ParellelPathGeneratorNode(Node):
         # Compute yaw angle from the velocity and position of the object
         object_pose = object.kinematics.pose_with_covariance.pose
         object_twist = object.kinematics.twist_with_covariance.twist
-        future_object_pose = self.su.calcoffsetpose(object_pose, object_twist.linear.x * 0.1, object_twist.linear.y * 0.1, 0.0)
+        future_object_pose = self.tu.calcoffsetpose(object_pose, object_twist.linear.x * 0.1, object_twist.linear.y * 0.1, 0.0)
 
         if object_twist.linear.x < 0.0:
             if object.kinematics.orientation_availability == DetectedObjectKinematics.SIGN_UNKNOWN:
                 # original_yaw = euler_from_quaternion(object.kinematics.pose_with_covariance.pose.orientation)[2]
-                original_yaw = self.su.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
+                original_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
                 # flip the angle
                 object.kinematics.pose_with_covariance.pose.orientation = self.tu.createQuaternionFromYaw(original_yaw + math.pi)
             else:

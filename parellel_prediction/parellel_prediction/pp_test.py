@@ -29,7 +29,7 @@ class TestClass(Node):
 
 
     def test_method_in_selfutils(self):
-        self.su = SelfUtils()
+        self.tu = SelfUtils()
 
         self.x = 1.0
         self.y = 1.0
@@ -41,12 +41,12 @@ class TestClass(Node):
 
         # Test createQuaternion method
         print('Test createQuaternion method for (0.0, 0.0, 0.0, 1.0):')
-        q = self.su.createQuaternion(0.0, 0.0, 0.0, 1.0)
+        q = self.tu.createQuaternion(0.0, 0.0, 0.0, 1.0)
         print('Quaternion is: ', q)
 
         # Test createTranslation method
         print('Test createTranslation method for (1.0, 1.0, 1.0):')
-        v = self.su.createTranslation(self.x, self.y, self.z)
+        v = self.tu.createTranslation(self.x, self.y, self.z)
         print('Translation is: ', v)
         
         # Test calc_offset_pose method
@@ -54,9 +54,9 @@ class TestClass(Node):
         self.pose.position.x = self.x
         self.pose.position.y = self.y
         self.pose.position.z = self.z
-        self.pose.orientation = self.su.createQuaternion(0.0, 0.0, 0.0, 1.0)
+        self.pose.orientation = self.tu.createQuaternion(0.0, 0.0, 0.0, 1.0)
         print('Original Pose is: ', self.pose)
-        new_pose = self.su.calcoffsetpose(self.pose, self.x, self.y, self.z)
+        new_pose = self.tu.calcoffsetpose(self.pose, self.x, self.y, self.z)
         print('New pose is: ', new_pose)
     
 
@@ -112,6 +112,23 @@ class TestClass(Node):
         # print('dist is:', self.tu.calcLateralOffset(points, point3))
         # print('dist is:', self.tu.calcSignedArcLength(points, 0,2))
         # print('dist is:', self.tu.calcLongitudinalOffsetToSegment(points,1, point3))
+    
+
+    def test_ppg(self):
+        self.ppg = PathGenerator(time_horizon, sampling_time_interval, min_crosswalk_user_velocity)
+        from typing import TypedDict
+        FrenetPoint = TypedDict('FrenetPoint', {'s': float, 'd': float, 's_vel': float, 'd_vel': float, 's_acc': float, 'd_acc': float})
+        cur = FrenetPoint()
+        cur['s_vel'] = 1.0
+        cur['d_vel'] = 1.0
+        cur['d'] = 1.0
+        cur['d_acc'] = 1.0
+        tar = FrenetPoint()
+        tar['s_vel'] = 2.0
+        tar['d_vel'] = 2.0
+        tar['d'] = 2.0
+        tar['d_acc'] = 2.0
+        print(self.ppg.calcLatCoefficients(cur, tar, 1))
 
 
 def main(args=None):
@@ -119,6 +136,7 @@ def main(args=None):
 
     tc = TestClass()
     print('Hi from pp_test.py')
+    tc.test_ppg()
     # tc.test_ran()
     
     # tc.test_method_in_selfutils()

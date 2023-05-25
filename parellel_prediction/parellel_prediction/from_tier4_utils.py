@@ -17,6 +17,45 @@ class Tier4Utils():
     
 
     # Methods:
+    # test passed
+    def calcoffsetpose(self, p: gmsgs.Pose, x: float, y: float, z: float) -> gmsgs.Pose:
+        new_pose = gmsgs.Pose()
+        transform = gmsgs.TransformStamped()
+        transform.transform.translation = self.createTranslation(x, y, z)
+        transform.transform.rotation = self.createQuaternion(0.0, 0.0, 0.0, 1.0)
+
+        tf_offset = tf2_gmsgs.from_msg_msg(transform)
+        tf_pose = tf2_gmsgs.from_msg_msg(p)
+        new_pose = tf2_gmsgs.do_transform_pose(tf_pose, tf_offset)
+
+        return new_pose
+    
+    # test passed
+    def createTranslation(self, x: float, y: float, z: float) -> gmsgs.Vector3:
+        v = gmsgs.Vector3()
+        v.x = x
+        v.y = y
+        v.z = z
+
+        return v
+
+    # test passed
+    def createQuaternion(self, x: float, y: float, z: float, w: float) -> gmsgs.Quaternion:
+        q = gmsgs.Quaternion()
+        q.x = x
+        q.y = y
+        q.z = z
+        q.w = w
+
+        return q
+    
+    # test passed
+    # Self defined methods to get yaw from quaternion
+    def getYawFromQuaternion(self, q: gmsgs.Quaternion) -> float:
+        euler = tf_transformations.euler_from_quaternion(q)
+
+        return euler[2]
+    
 
     def toHexString(self, id:uuid.UUID) -> str:
         hex_string = ""
