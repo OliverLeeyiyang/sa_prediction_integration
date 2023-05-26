@@ -22,7 +22,6 @@ setup(
         'console_scripts': [
             'parellel_path_generator = parellel_prediction.parellel_path_generator:main',
             'pp_test = parellel_prediction.pp_test:main',
-            'self_utils = parellel_prediction.self_utils:main',
             'tier4_utils = parellel_prediction.from_tier4_utils:main',
             'map_based_prediction_node = parellel_prediction.map_based_prediction_node:main',
         ],
