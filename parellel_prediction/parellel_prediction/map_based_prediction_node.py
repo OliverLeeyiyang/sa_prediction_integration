@@ -22,7 +22,6 @@ from tf_transformations import euler_from_quaternion
 # Local imports
 from .parellel_path_generator import PathGenerator
 from .from_tier4_utils import Tier4Utils
-from .self_utils import SelfUtils
 
 
 # input topics

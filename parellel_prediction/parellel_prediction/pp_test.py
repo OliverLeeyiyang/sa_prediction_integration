@@ -1,6 +1,5 @@
 from .parellel_path_generator import PathGenerator
 from .map_based_prediction_node import ParellelPathGeneratorNode
-from .self_utils import SelfUtils
 from .from_tier4_utils import Tier4Utils
 
 import rclpy
@@ -29,7 +28,7 @@ class TestClass(Node):
 
 
     def test_method_in_selfutils(self):
-        self.tu = SelfUtils()
+        self.tu = Tier4Utils()
 
         self.x = 1.0
         self.y = 1.0

@@ -18,7 +18,6 @@ from autoware_auto_perception_msgs.msg import TrackedObjectKinematics
 from autoware_auto_perception_msgs.msg import TrackedObjects
 
 # Local imports
-from .self_utils import SelfUtils
 from .from_tier4_utils import Tier4Utils
 
 # New data types
