@@ -18,6 +18,9 @@ import autoware_auto_mapping_msgs.msg as map_msgs
 # Outside imports
 import math
 from tf_transformations import euler_from_quaternion
+import lanelet2
+from lanelet2.core import LaneletMap, geometry
+from lanelet2.routing import RoutingGraph
 
 # Local imports
 from .parellel_path_generator import PathGenerator
@@ -66,6 +69,7 @@ class ParellelPathGeneratorNode(Node):
         self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.object_callback, 10)
         self.map_sub = self.create_subscription(map_msgs.HADMapBin, input_topic_map, self.map_callback, 10)
         self.pred_objects_pub = self.create_publisher(PredictedObjects, pareller_output_topic, 10)
+        self.lanelet_map_ptr_ = LaneletMap()
     
 
     def map_callback(self, msg: map_msgs.HADMapBin):
@@ -77,6 +81,7 @@ class ParellelPathGeneratorNode(Node):
 
     def object_callback(self, in_objects: TrackedObjects):
         # TODO: Guard for map pointer and frame transformation(line 561)
+
         # TODO: world,map and bask_link transform
         # TODO: Remove old objects information in object history(line 582)
 
