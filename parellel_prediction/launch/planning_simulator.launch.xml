@@ -24,8 +24,7 @@
   <arg name="scenario_simulation" default="false" description="use scenario simulation"/>
   <!-- Vcu emulation -->
   <arg name="vehicle_simulation" default="true" description="use vehicle simulation"/>
-  
-  <node pkg="parellel_prediction" exec="map_based_prediction_node" name="p_map_based_prediction_node"/>
+
   <group scoped="false">
     <!-- Vehicle -->
     <let name="launch_vehicle_interface" value="false" if="$(var vehicle_simulation)"/>

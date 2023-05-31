@@ -20,7 +20,8 @@ import math
 import pickle
 import lanelet2
 import io
-from lanelet2.core import LaneletMap
+from typing import List
+from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId
 from lanelet2.routing import RoutingGraph
 from lanelet2.traffic_rules import TrafficRules
 import lanelet2.traffic_rules as traffic_rules
@@ -28,7 +29,8 @@ import lanelet2.traffic_rules as traffic_rules
 # Local imports
 from .parellel_path_generator import PathGenerator
 from .from_tier4_utils import Tier4Utils
-
+ConstLanelets = List[ConstLanelet]
+Lanelets = List[Lanelet]
 
 # input topics
 input_topic_objects = '/perception/object_recognition/tracking/objects'
@@ -53,7 +55,7 @@ class ParellelPathGeneratorNode(Node):
 
     cd ~/ma_prediction_integration/src/parellel_prediction/launch
 
-    ros2 launch parellel_prediction planning_simulator.launch.xml map_path:=$HOME/autoware_map/sample-map-planning vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit
+    ros2 launch planning_simulator.launch.xml map_path:=$HOME/autoware_map/sample-map-planning vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit
 
     Topics
     --------------------
@@ -85,11 +87,12 @@ class ParellelPathGeneratorNode(Node):
     
 
     def map_callback(self, msg: map_msgs.HADMapBin):
-        self.get_logger().info('[Map Based Prediction]: Start loading lanelet')
+        self.get_logger().info('[Parellel Map Based Prediction]: Start loading lanelet')
         self.fromBinMsg(msg)
-        self.get_logger().info('[Map Based Prediction]: Map is loaded')
+        self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
         
-        all_lanelets = lanelet2.utils.query.laneletLayer(self.lanelet_map)
+        all_lanelets = self.query_laneletLayer(self.lanelet_map)
+        # TODO: Get all crosswalks and walkways, line 552-555
 
 
     def object_callback(self, in_objects: TrackedObjects):
@@ -264,14 +267,27 @@ class ParellelPathGeneratorNode(Node):
 
         id_counter: lanelet2.Id = 0
         id_counter = self.lanelet_map
-        lanelet2.utils.registerId(id_counter)
-        LaneletMap.lanelet.utils.registerId(id_counter)
+        registerId(id_counter)
+        self.get_logger().info('[Parellel Map Based Prediction]: Id is registered!')
         
-
-
         self.traffic_rules = traffic_rules.create(traffic_rules.Locations.Germany, traffic_rules.Participants.Vehicle)
         self.routing_graph = RoutingGraph.build(map, self.traffic_rules)
 
+
+    def query_laneletLayer(self, ll_map: LaneletMap) -> ConstLanelets:
+        lanelets = ConstLanelets()
+        if ll_map is None:
+            print("No map received!")
+            return lanelets
+        
+        for ll in ll_map.laneletLayer:
+            lanelets.append(ll)
+        
+        return lanelets
+    
+
+    def query_crosswalkLanelets(self, lls: ConstLanelets) -> ConstLanelets:
+        pass
 
 
 def main(args=None):
