@@ -17,10 +17,13 @@ import autoware_auto_mapping_msgs.msg as map_msgs
 
 # Outside imports
 import math
-from tf_transformations import euler_from_quaternion
+import pickle
 import lanelet2
-from lanelet2.core import LaneletMap, geometry
+import io
+from lanelet2.core import LaneletMap
 from lanelet2.routing import RoutingGraph
+from lanelet2.traffic_rules import TrafficRules
+import lanelet2.traffic_rules as traffic_rules
 
 # Local imports
 from .parellel_path_generator import PathGenerator
@@ -46,6 +49,10 @@ min_crosswalk_user_velocity = 1.0
 class ParellelPathGeneratorNode(Node):
     '''Node for generating path for other vehicles and crosswalk users.
 
+    Launch simulation:
+
+    ros2 launch parellel_prediction planning_simulator.launch.xml map_path:=$HOME/autoware_map/sample-map-planning vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit
+
     Topics
     --------------------
 
@@ -66,17 +73,21 @@ class ParellelPathGeneratorNode(Node):
         self.pg = PathGenerator(time_horizon_, sampling_time_interval_, min_crosswalk_user_velocity_)
         self.tu = Tier4Utils()
 
+        self.map_sub = self.create_subscription(map_msgs.HADMapBin, input_topic_map, self.map_callback, 1)
         self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.object_callback, 10)
-        self.map_sub = self.create_subscription(map_msgs.HADMapBin, input_topic_map, self.map_callback, 10)
         self.pred_objects_pub = self.create_publisher(PredictedObjects, pareller_output_topic, 10)
-        self.lanelet_map_ptr_ = LaneletMap()
+        # Params for lanelet map
+        self.lanelet_map = LaneletMap()
+        self.traffic_rules = None
+        self.routing_graph = None
     
 
     def map_callback(self, msg: map_msgs.HADMapBin):
-        # self.get_logger().info('[Map Based Prediction]: Start loading lanelet')
-        # TODO: Load map
-        # self.get_logger().info('[Map Based Prediction]: Map is loaded')
-        pass
+        self.get_logger().info('[Map Based Prediction]: Start loading lanelet')
+        self.fromBinMsg(msg)
+        self.get_logger().info('[Map Based Prediction]: Map is loaded')
+        
+        all_lanelets = lanelet2.utils.query.laneletLayer(self.lanelet_map)
 
 
     def object_callback(self, in_objects: TrackedObjects):
@@ -234,6 +245,30 @@ class ParellelPathGeneratorNode(Node):
 
         '''
         pass
+
+
+    # Following methods are for lanelet2 utils
+    def fromBinMsg(self, msg: map_msgs.HADMapBin):
+        if map is None:
+            print("fromBinMsg: map is null pointer!")
+            return
+        
+        # TODO: test!
+        # data_str = msg.data.tobytes()
+        # self.lanelet_map = pickle.loads(data_str)
+        # id_counter: lanelet2.Id = 0
+        ss = io.BytesIO(msg.data)
+        self.lanelet_map = pickle.loads(ss.read())
+
+        id_counter: lanelet2.Id = 0
+        id_counter = self.lanelet_map
+        lanelet2.utils.registerId(id_counter)
+        LaneletMap.lanelet.utils.registerId(id_counter)
+        
+
+
+        self.traffic_rules = traffic_rules.create(traffic_rules.Locations.Germany, traffic_rules.Participants.Vehicle)
+        self.routing_graph = RoutingGraph.build(map, self.traffic_rules)
 
 
 

@@ -271,9 +271,6 @@ class Tier4Utils():
 
         cross_vec = np.cross(segment_vec, target_vec)
         return cross_vec[2] / np.linalg.norm(segment_vec)
-        
-
-
 
 
 
