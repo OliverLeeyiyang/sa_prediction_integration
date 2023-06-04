@@ -14,11 +14,16 @@ from autoware_auto_perception_msgs.msg import TrackedObjects
 from autoware_auto_perception_msgs.msg import DetectedObjectKinematics
 
 import autoware_auto_mapping_msgs.msg as map_msgs
+import geometry_msgs.msg as gmsgs
 
 # Outside imports
 import math
 import pickle
 import lanelet2
+import tf2_geometry_msgs as tf2_gmsgs
+import tf_transformations 
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
 import io
 from typing import List
 from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId
@@ -37,7 +42,7 @@ input_topic_objects = '/perception/object_recognition/tracking/objects'
 input_topic_map = '/map/vector_map'
 
 # output topics
-# output_topic_objects = '/perception/object_recognition/objects'
+output_topic_objects = '/perception/object_recognition/objects'
 pareller_output_topic = '/parellel/objects'
 
 # Parameters
@@ -84,6 +89,11 @@ class ParellelPathGeneratorNode(Node):
         self.lanelet_map = LaneletMap()
         self.traffic_rules = None
         self.routing_graph = None
+
+        self.tf_buffer = Buffer()
+        # for testing
+        self.test_sub = self.create_subscription(PredictedObjects, output_topic_objects, self.test_callback, 10)
+        self.quat = gmsgs.Quaternion()
     
 
     def map_callback(self, msg: map_msgs.HADMapBin):
@@ -94,11 +104,23 @@ class ParellelPathGeneratorNode(Node):
         all_lanelets = self.query_laneletLayer(self.lanelet_map)
         # TODO: Get all crosswalks and walkways, line 552-555
 
+    def test_callback(self, msg: PredictedObjects):
+        for object in msg.objects:
+            self.quat = object.kinematics.initial_pose_with_covariance.pose.orientation
+        # print('to quat is: ', self.quat)
+
 
     def object_callback(self, in_objects: TrackedObjects):
         # TODO: Guard for map pointer and frame transformation(line 561)
 
         # TODO: world,map and bask_link transform
+        world2map_transform = self.tf_buffer.lookup_transform('map', in_objects.header.frame_id, in_objects.header.stamp, rclpy.duration.Duration(seconds=1.0))
+        map2world_transform = self.tf_buffer.lookup_transform(in_objects.header.frame_id, 'map', in_objects.header.stamp, rclpy.duration.Duration(seconds=1.0))
+
+        if world2map_transform is None or map2world_transform is None:
+            return
+        
+        # debug_map2lidar_transform = self.tf_buffer.lookup_transform('base_link', 'map', in_objects.header.stamp, rclpy.duration.Duration(seconds=1.0))
         # TODO: Remove old objects information in object history(line 582)
 
         # result output
@@ -113,10 +135,26 @@ class ParellelPathGeneratorNode(Node):
             # seems like this is not necessary
             object_id = self.tu.toHexString(object.object_id)
 
-            transformed_object = TrackedObject()
+            #transformed_object = TrackedObject()
             transformed_object = object
 
-            # TODO: transform object frame if it's not based on map frame(line 599), need to use transform
+            # TODO: transform object frame if it's based on map frame(line 599), need to use transform
+            if in_objects.header.frame_id != 'map':
+                pose_in_map = gmsgs.PoseStamped()
+                pose_orig = gmsgs.PoseStamped()
+                pose_orig.pose = object.kinematics.pose_with_covariance.pose
+                pose_in_map = tf2_gmsgs.do_transform_pose(pose_orig, world2map_transform)
+                transformed_object.kinematics.pose_with_covariance.pose = pose_in_map.pose
+
+            # Testing
+            quat = transformed_object.kinematics.pose_with_covariance.pose.orientation
+            # print('from quat is: ', quat)
+            quat_to = [self.quat.x, self.quat.y, self.quat.z, self.quat.w]
+            quat_from = [quat.x, quat.y, quat.z, -quat.w]
+            transform_quat = tf_transformations.quaternion_multiply(quat_to, quat_from)
+            # print('transform quat is: ', transform_quat)
+            
+
 
             # get tracking label and update it for the prediction
             #tracking_label = transformed_object.classification.label

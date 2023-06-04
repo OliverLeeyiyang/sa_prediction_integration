@@ -5,6 +5,7 @@ from .from_tier4_utils import Tier4Utils
 import rclpy
 from rclpy.node import Node
 import geometry_msgs.msg as gmsgs
+import numpy as np
 
 # input topics
 input_topic_objects = '/perception/object_recognition/tracking/objects'
@@ -129,13 +130,18 @@ class TestClass(Node):
         tar['d_acc'] = 2.0
         print(self.ppg.calcLatCoefficients(cur, tar, 1))
 
+    
+    def test11(self):
+        print(np.arange(0, 10, 0.5))
+
 
 def main(args=None):
     rclpy.init(args=args)
 
     tc = TestClass()
     print('Hi from pp_test.py')
-    tc.test_ppg()
+    tc.test11()
+    # tc.test_ppg()
     # tc.test_ran()
     
     # tc.test_method_in_selfutils()

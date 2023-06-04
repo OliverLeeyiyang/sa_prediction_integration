@@ -101,9 +101,12 @@ class PathGenerator():
         path = PredictedPath()
         path.time_step = Duration.to_msg(Duration(seconds = self.sampling_time_interval))
         path.path = []
-        for dt in np.arange(0.0, duration, self.sampling_time_interval):
+
+        dt = 0.0
+        while dt < duration:
             future_obj_pose = self.tu.calcoffsetpose(object_pose, object_twist.linear.x * dt, object_twist.linear.y * dt, 0.0)
             path.path.append(future_obj_pose)
+            dt += self.sampling_time_interval
         
         return path
     
