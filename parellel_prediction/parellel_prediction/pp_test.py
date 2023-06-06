@@ -6,6 +6,7 @@ import rclpy
 from rclpy.node import Node
 import geometry_msgs.msg as gmsgs
 import numpy as np
+import tf_transformations 
 
 # input topics
 input_topic_objects = '/perception/object_recognition/tracking/objects'
@@ -54,7 +55,9 @@ class TestClass(Node):
         self.pose.position.x = self.x
         self.pose.position.y = self.y
         self.pose.position.z = self.z
-        self.pose.orientation = self.tu.createQuaternion(0.0, 0.0, 0.0, 1.0)
+        #self.pose.orientation = self.tu.createQuaternion(0.0, 0.0, 0.0, 1.0)
+        quat = tf_transformations.quaternion_from_euler(0.0, 0.0, 0.0)
+        self.pose.orientation = self.tu.createQuaternion(quat[0], quat[1], quat[2], quat[3])
         print('Original Pose is: ', self.pose)
         new_pose = self.tu.calcoffsetpose(self.pose, self.x, self.y, self.z)
         print('New pose is: ', new_pose)
@@ -130,9 +133,6 @@ class TestClass(Node):
         tar['d_acc'] = 2.0
         print(self.ppg.calcLatCoefficients(cur, tar, 1))
 
-    
-    def test11(self):
-        print(np.arange(0, 10, 0.5))
 
 
 def main(args=None):
@@ -140,14 +140,11 @@ def main(args=None):
 
     tc = TestClass()
     print('Hi from pp_test.py')
-    tc.test11()
+
     # tc.test_ppg()
     # tc.test_ran()
     
-    # tc.test_method_in_selfutils()
-    # tc.test_ppgn()
-    # if tc.ppgn.flag:
-    #     print('Path generated!.')
+    tc.test_method_in_selfutils()
 
     # rclpy.spin(tc)
 

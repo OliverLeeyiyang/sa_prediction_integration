@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-
+from autoware_auto_perception_msgs.msg import TrackedObjects
 from autoware_auto_perception_msgs.msg import PredictedObjects
 from autoware_auto_perception_msgs.msg import PredictedPath
 from nav_msgs.msg import Path
@@ -13,6 +13,9 @@ pareller_output_topic = '/parellel/objects'
 # Topics to publish
 original_path_pub = '/visualization/original_path'
 parellel_path_pub = '/visualization/parellel_path'
+
+# Debug topics
+debug_topic = '/perception/object_recognition/tracking/objects'
 
 
 class Visualization(Node):
@@ -30,14 +33,24 @@ class Visualization(Node):
             pareller_output_topic,
             self.callback2,
             10)
+        self.subscription3 = self.create_subscription(
+            TrackedObjects,
+            debug_topic,
+            self.callback3,
+            10)
+            
 
+    def callback3(self, msg: TrackedObjects):
+        for obj in msg.objects:
+            obj_pose = obj.kinematics.pose_with_covariance.pose
+            print('cpp obj pose:         ', obj_pose)
     
     def callback1(self, msg: PredictedObjects):
         path1 = Path()
         path1.header = msg.header
         for obj in msg.objects:
-            print(obj.kinematics.initial_pose_with_covariance.pose.orientation)
-            
+            pre_pose = obj.kinematics.predicted_paths[0].path[0]
+            print('cpp pred obj pose:    ', pre_pose)
             for pre_path in obj.kinematics.predicted_paths:
                 # if pose is not empty
                 if pre_path.path is None:
@@ -54,9 +67,10 @@ class Visualization(Node):
 
     def callback2(self, msg: PredictedObjects):
         path2 = Path()
-        
         path2.header = msg.header
         for obj in msg.objects:
+            pre_pose = obj.kinematics.predicted_paths[0].path[0]
+            print('python pred obj pose: ', pre_pose)
             for pre_path in obj.kinematics.predicted_paths:
                 # if pose is not empty
                 if pre_path.path is None:

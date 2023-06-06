@@ -23,6 +23,14 @@ class Tier4Utils():
         transform = gmsgs.TransformStamped()
         transform.transform.translation = self.createTranslation(x, y, z)
         transform.transform.rotation = self.createQuaternion(0.0, 0.0, 0.0, 1.0)
+        #test
+        """ qua = tf_transformations.quaternion_from_euler(0.0, 0.0, 0.0)
+        transform.transform.rotation = self.createQuaternion(qua[0], qua[1], qua[2], qua[3])
+        quat0 = tf_transformations.quaternion_from_euler(0.0, 0.0, math.pi)
+        ori = [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w]
+        quat = tf_transformations.quaternion_multiply(quat0, ori)
+        quatt = self.createQuaternion(quat[0], quat[1], quat[2], quat[3])
+        p.orientation = quatt """
 
         tf_offset = tf2_gmsgs.from_msg_msg(transform)
         tf_pose = tf2_gmsgs.from_msg_msg(p)

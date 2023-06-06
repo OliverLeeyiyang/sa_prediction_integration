@@ -96,6 +96,10 @@ class ParellelPathGeneratorNode(Node):
         self.quat = gmsgs.Quaternion()
     
 
+    # line 152
+    def updateLateralKinematicsVector(self):
+        pass
+
     def map_callback(self, msg: map_msgs.HADMapBin):
         self.get_logger().info('[Parellel Map Based Prediction]: Start loading lanelet')
         self.fromBinMsg(msg)
@@ -163,7 +167,13 @@ class ParellelPathGeneratorNode(Node):
 
             # TODO: For crosswalk user, don't consider this situation now.(line 612)
             if label == ObjectClassification.PEDESTRIAN or label == ObjectClassification.BICYCLE:
-                continue
+                # Test
+                predicted_object = self.convertToPredictedObject(transformed_object)
+                predicted_path = self.pg.generatePathForNonVehicleObject(transformed_object)
+                predicted_path.confidence = 1.0
+
+                predicted_object.kinematics.predicted_paths.append(predicted_path)
+                output.objects.append(predicted_object)
             # For road user
             elif label == ObjectClassification.CAR or label == ObjectClassification.BUS or label == ObjectClassification.TRAILER\
                     or label == ObjectClassification.MOTORCYCLE or label == ObjectClassification.TRUCK:
@@ -256,6 +266,11 @@ class ParellelPathGeneratorNode(Node):
         return
     
 
+    # line 1049
+    def updateObjectsHistory(self):
+        pass
+
+
     # TODO: finish this method for case 2 and 3. And input lanelet_map_ptr should be lanelet::LaneletMapPtr
     # still have two inputs: object: TrackedObject, lanlet_map_ptr: LaneletMapPtr
     def changeLabelForPrediction(self, label: ObjectClassification.label) -> ObjectClassification.label:
@@ -297,13 +312,13 @@ class ParellelPathGeneratorNode(Node):
             return
         
         # TODO: test!
-        # data_str = msg.data.tobytes()
-        # self.lanelet_map = pickle.loads(data_str)
-        # id_counter: lanelet2.Id = 0
-        ss = io.BytesIO(msg.data)
-        self.lanelet_map = pickle.loads(ss.read())
+        data_str = [str(num) for num in msg.data]
+        ss = io.StringIO(data_str)
+        oa = pickle.Unpickler(ss)
 
-        id_counter: lanelet2.Id = 0
+        #self.lanelet_map.add(msg.data)
+
+        # id_counter: lanelet2.Id = 0
         id_counter = self.lanelet_map
         registerId(id_counter)
         self.get_logger().info('[Parellel Map Based Prediction]: Id is registered!')

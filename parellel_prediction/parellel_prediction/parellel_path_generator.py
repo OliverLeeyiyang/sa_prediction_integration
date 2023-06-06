@@ -3,6 +3,8 @@ import rclpy
 from rclpy.duration import Duration
 import numpy as np
 import geometry_msgs.msg as gmsgs
+import tf_transformations
+import math
 
 # Autoware auto msgs
 import autoware_auto_perception_msgs.msg._predicted_objects as apmsg_pos
@@ -25,6 +27,15 @@ from typing import List, Tuple, TypedDict
 # Can use a class to setup this type. 
 # Or use TypeDict <https://docs.python.org/3/library/typing.html#other-special-directives>
 FrenetPoint = TypedDict('FrenetPoint', {'s': float, 'd': float, 's_vel': float, 'd_vel': float, 's_acc': float, 'd_acc': float})
+#class FrenetPoint:
+#    def __init__(self, s: float, d: float, s_vel: float, d_vel: float, s_acc: float, d_acc: float):
+#        self.s = s
+#        self.d = d
+#        self.s_vel = s_vel
+#        self.d_vel = d_vel
+#        self.s_acc = s_acc
+#        self.d_acc = d_acc
+
 FrenetPath = List[FrenetPoint]
 Vector2d = Tuple[float, float]
 EntryPoint = Tuple[Vector2d, Vector2d]
@@ -94,6 +105,13 @@ class PathGenerator():
 
     def _generateStraightPath(self, object: TrackedObject) -> PredictedPath:
         object_pose = object.kinematics.pose_with_covariance.pose
+        # test, this part can change the direction of the arrow in Path Rviz
+        """ quat0 = tf_transformations.quaternion_from_euler(0.0, 0.0, math.pi / 4.0)
+        ori = [object_pose.orientation.x, object_pose.orientation.y, object_pose.orientation.z, object_pose.orientation.w]
+        quat = tf_transformations.quaternion_multiply(quat0, ori)
+        quatt = self.tu.createQuaternion(quat[0], quat[1], quat[2], quat[3])
+        object_pose.orientation = quatt """
+
         object_twist = object.kinematics.twist_with_covariance.twist
         ep = 0.001
         duration = self.time_horizon + ep
@@ -104,7 +122,7 @@ class PathGenerator():
 
         dt = 0.0
         while dt < duration:
-            future_obj_pose = self.tu.calcoffsetpose(object_pose, object_twist.linear.x * dt, object_twist.linear.y * dt, 0.0)
+            future_obj_pose = self.tu.calcoffsetpose(object_pose, 1 * object_twist.linear.x * dt, 1 *object_twist.linear.y * dt, 0.0)
             path.path.append(future_obj_pose)
             dt += self.sampling_time_interval
         
