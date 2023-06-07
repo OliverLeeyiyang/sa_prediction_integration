@@ -1,6 +1,7 @@
 # System and Projects imports
 import rclpy
 from rclpy.node import Node
+from rclpy.time import Time
 
 # Import message types
 from autoware_auto_perception_msgs.msg import ObjectClassification
@@ -15,9 +16,11 @@ from autoware_auto_perception_msgs.msg import DetectedObjectKinematics
 
 import autoware_auto_mapping_msgs.msg as map_msgs
 import geometry_msgs.msg as gmsgs
+import std_msgs.msg as smsgs
 
 # Outside imports
 import math
+from collections import deque # For objects_history
 import pickle
 import lanelet2
 import tf2_geometry_msgs as tf2_gmsgs
@@ -30,6 +33,13 @@ from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId
 from lanelet2.routing import RoutingGraph
 from lanelet2.traffic_rules import TrafficRules
 import lanelet2.traffic_rules as traffic_rules
+
+# Data structure
+class LaneletData:
+    def __init__(self):
+        self.lanelet = lanelet2.core.Lanelet()
+        self.probability: float
+LaneletsData = List[LaneletData]
 
 # Local imports
 from .parellel_path_generator import PathGenerator
@@ -91,9 +101,8 @@ class ParellelPathGeneratorNode(Node):
         self.routing_graph = None
 
         self.tf_buffer = Buffer()
-        # for testing
-        self.test_sub = self.create_subscription(PredictedObjects, output_topic_objects, self.test_callback, 10)
-        self.quat = gmsgs.Quaternion()
+        self.objects_history_ = {}
+
     
 
     # line 152
@@ -108,41 +117,43 @@ class ParellelPathGeneratorNode(Node):
         all_lanelets = self.query_laneletLayer(self.lanelet_map)
         # TODO: Get all crosswalks and walkways, line 552-555
 
-    def test_callback(self, msg: PredictedObjects):
-        for object in msg.objects:
-            self.quat = object.kinematics.initial_pose_with_covariance.pose.orientation
-        # print('to quat is: ', self.quat)
-
 
     def object_callback(self, in_objects: TrackedObjects):
-        # TODO: Guard for map pointer and frame transformation(line 561)
+        # Guard for map pointer and frame transformation
+        # if self.lanelet_map is None:
+        #     return
+        # test
+        print('[pyt called pose ]: ', in_objects[0].kinematics.pose_with_covariance.pose)
+        print('[pyt called twist]: ', in_objects[0].kinematics.twist_with_covariance.twist)
 
-        # TODO: world,map and bask_link transform
         world2map_transform = self.tf_buffer.lookup_transform('map', in_objects.header.frame_id, in_objects.header.stamp, rclpy.duration.Duration(seconds=1.0))
         map2world_transform = self.tf_buffer.lookup_transform(in_objects.header.frame_id, 'map', in_objects.header.stamp, rclpy.duration.Duration(seconds=1.0))
+        # debug_map2lidar_transform = self.tf_buffer.lookup_transform('base_link', 'map', Time(), rclpy.duration.Duration(seconds=1.0))
 
         if world2map_transform is None or map2world_transform is None:
             return
+        #if world2map_transform is None or map2world_transform or
+        #    return
         
-        # debug_map2lidar_transform = self.tf_buffer.lookup_transform('base_link', 'map', in_objects.header.stamp, rclpy.duration.Duration(seconds=1.0))
-        # TODO: Remove old objects information in object history(line 582)
+        # Remove old objects information in object history(line 582) TODO: test this
+        objects_detected_time = Time.from_msg(in_objects.header.stamp).seconds_nanoseconds()
+        self.removeOldObjectsHistory(objects_detected_time)
 
         # result output
         output = PredictedObjects()
         output.header = in_objects.header
         output.header.frame_id = 'map'
 
-        # Didn't do: debug_markers
+        # Didn't do: debug_markers line 592
 
         # Deal with each object
         for object in in_objects.objects:
             # seems like this is not necessary
             object_id = self.tu.toHexString(object.object_id)
 
-            #transformed_object = TrackedObject()
-            transformed_object = object
+            transformed_object = object # transformed_object: TrackedObject()
 
-            # TODO: transform object frame if it's based on map frame(line 599), need to use transform
+            # transform object frame if it's based on map frame
             if in_objects.header.frame_id != 'map':
                 pose_in_map = gmsgs.PoseStamped()
                 pose_orig = gmsgs.PoseStamped()
@@ -150,42 +161,41 @@ class ParellelPathGeneratorNode(Node):
                 pose_in_map = tf2_gmsgs.do_transform_pose(pose_orig, world2map_transform)
                 transformed_object.kinematics.pose_with_covariance.pose = pose_in_map.pose
 
-            # Testing
-            quat = transformed_object.kinematics.pose_with_covariance.pose.orientation
-            # print('from quat is: ', quat)
-            quat_to = [self.quat.x, self.quat.y, self.quat.z, self.quat.w]
-            quat_from = [quat.x, quat.y, quat.z, -quat.w]
-            transform_quat = tf_transformations.quaternion_multiply(quat_to, quat_from)
-            # print('transform quat is: ', transform_quat)
-            
-
-
             # get tracking label and update it for the prediction
-            #tracking_label = transformed_object.classification.label
-            tracking_label = 1
+            tracking_label = transformed_object.classification[0].label
             label = self.changeLabelForPrediction(tracking_label)
 
             # TODO: For crosswalk user, don't consider this situation now.(line 612)
             if label == ObjectClassification.PEDESTRIAN or label == ObjectClassification.BICYCLE:
-                # Test
-                predicted_object = self.convertToPredictedObject(transformed_object)
-                predicted_path = self.pg.generatePathForNonVehicleObject(transformed_object)
-                predicted_path.confidence = 1.0
-
-                predicted_object.kinematics.predicted_paths.append(predicted_path)
+                predicted_object = self.getPredictedObjectAsCrosswalkUser(transformed_object)
                 output.objects.append(predicted_object)
+
             # For road user
             elif label == ObjectClassification.CAR or label == ObjectClassification.BUS or label == ObjectClassification.TRAILER\
                     or label == ObjectClassification.MOTORCYCLE or label == ObjectClassification.TRUCK:
                 # Update object yaw and velocity
-                # self.updateObjectData(transformed_object)
+                transformed_object = self.updateObjectData(transformed_object)
+                # test
+                print('[pyt updated pose ]: ', transformed_object.kinematics.pose_with_covariance.pose)
+                print('[pyt updated twist]: ', transformed_object.kinematics.twist_with_covariance.twist)
 
                 # TODO: Get Closest Lanelet (line 624)
-                # current_lanelets = 
+                current_lanelets = self.getCurrentLanelets(transformed_object)
 
-                # TODO: Update Objects History (line 627)
+                # TODO: Update Objects History (line 627) **important for prediction**
+                self.updateObjectsHistory(output.header, transformed_object, current_lanelets)
 
                 # TODO: For off lane obstacles
+                if current_lanelets is None:
+                    predicted_path = self.pg.generatePathForOffLaneVehicle(transformed_object)
+                    predicted_path.confidence = 1.0
+                    if predicted_path.path is None:
+                        continue
+
+                    predicted_object = self.convertToPredictedObject(transformed_object)
+                    predicted_object.kinematics.predicted_paths.append(predicted_path)
+                    output.objects.append(predicted_object)
+                    continue
 
                 # TODO: For too-slow vehicle
 
@@ -200,16 +210,7 @@ class ParellelPathGeneratorNode(Node):
 
                 # TODO: Normalize Path Confidence and output the predicted object
 
-                # Test
-                predicted_object = self.convertToPredictedObject(transformed_object)
-                predicted_path = self.pg.generatePathForNonVehicleObject(transformed_object)
-                predicted_path.confidence = 1.0
-
-                predicted_object.kinematics.predicted_paths.append(predicted_path)
-                output.objects.append(predicted_object)
-
-            # For unknown object (line 725)
-            # Use this part to test PathGenerator.generateStraightPath
+            # For unknown object
             else:
                 predicted_object = self.convertToPredictedObject(transformed_object)
                 predicted_path = self.pg.generatePathForNonVehicleObject(transformed_object)
@@ -242,7 +243,7 @@ class ParellelPathGeneratorNode(Node):
         return predicted_object
 
 
-    def updateObjectData(self, object: TrackedObject):
+    def updateObjectData(self, object: TrackedObject) -> TrackedObject:
         if object.kinematics.orientation_availability == DetectedObjectKinematics.AVAILABLE:
             return
         
@@ -251,9 +252,8 @@ class ParellelPathGeneratorNode(Node):
         object_twist = object.kinematics.twist_with_covariance.twist
         future_object_pose = self.tu.calcoffsetpose(object_pose, object_twist.linear.x * 0.1, object_twist.linear.y * 0.1, 0.0)
 
-        if object_twist.linear.x < 0.0:
+        if object.kinematics.twist_with_covariance.twist.linear.x < 0.0:
             if object.kinematics.orientation_availability == DetectedObjectKinematics.SIGN_UNKNOWN:
-                # original_yaw = euler_from_quaternion(object.kinematics.pose_with_covariance.pose.orientation)[2]
                 original_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
                 # flip the angle
                 object.kinematics.pose_with_covariance.pose.orientation = self.tu.createQuaternionFromYaw(original_yaw + math.pi)
@@ -263,11 +263,39 @@ class ParellelPathGeneratorNode(Node):
             
             object.kinematics.twist_with_covariance.twist.linear.x *= -1.0
         
-        return
+        return object
     
 
-    # line 1049
-    def updateObjectsHistory(self):
+    def removeOldObjectsHistory(self, current_time: Time):
+        invalid_object_id = []
+        for object_id, object_data in self.objects_history_.items():
+            # If object data is empty, we are going to delete the buffer for the obstacle
+            if not object_data:
+                invalid_object_id.append(object_id)
+                continue
+
+            latest_object_time = object_data[-1].header.stamp.to_msg().seconds_nanoseconds()
+
+            # Delete Old Objects
+            if current_time - latest_object_time > 2.0:
+                invalid_object_id.append(object_id)
+                continue
+
+            # Delete old information
+            while object_data and current_time - object_data[0].header.stamp.to_msg().seconds_nanoseconds() > 2.0:
+                # Delete Old Position
+                object_data.popleft()
+
+            if not object_data:
+                invalid_object_id.append(object_id)
+                continue
+
+        for key in invalid_object_id:
+            del self.objects_history_[key]
+
+
+    # TODO: line 1049
+    def updateObjectsHistory(self, header: smsgs.Header, object: TrackedObject, current_lanelets_data: LaneletsData):
         pass
 
 
@@ -341,6 +369,10 @@ class ParellelPathGeneratorNode(Node):
 
     def query_crosswalkLanelets(self, lls: ConstLanelets) -> ConstLanelets:
         pass
+
+
+    def getCurrentLanelets(self, object: TrackedObject) -> LaneletsData:
+        return None
 
 
 def main(args=None):

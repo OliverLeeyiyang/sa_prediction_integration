@@ -105,13 +105,6 @@ class PathGenerator():
 
     def _generateStraightPath(self, object: TrackedObject) -> PredictedPath:
         object_pose = object.kinematics.pose_with_covariance.pose
-        # test, this part can change the direction of the arrow in Path Rviz
-        """ quat0 = tf_transformations.quaternion_from_euler(0.0, 0.0, math.pi / 4.0)
-        ori = [object_pose.orientation.x, object_pose.orientation.y, object_pose.orientation.z, object_pose.orientation.w]
-        quat = tf_transformations.quaternion_multiply(quat0, ori)
-        quatt = self.tu.createQuaternion(quat[0], quat[1], quat[2], quat[3])
-        object_pose.orientation = quatt """
-
         object_twist = object.kinematics.twist_with_covariance.twist
         ep = 0.001
         duration = self.time_horizon + ep
@@ -122,7 +115,7 @@ class PathGenerator():
 
         dt = 0.0
         while dt < duration:
-            future_obj_pose = self.tu.calcoffsetpose(object_pose, 1 * object_twist.linear.x * dt, 1 *object_twist.linear.y * dt, 0.0)
+            future_obj_pose = self.tu.calcoffsetpose(object_pose, object_twist.linear.x * dt, object_twist.linear.y * dt, 0.0)
             path.path.append(future_obj_pose)
             dt += self.sampling_time_interval
         

@@ -23,14 +23,6 @@ class Tier4Utils():
         transform = gmsgs.TransformStamped()
         transform.transform.translation = self.createTranslation(x, y, z)
         transform.transform.rotation = self.createQuaternion(0.0, 0.0, 0.0, 1.0)
-        #test
-        """ qua = tf_transformations.quaternion_from_euler(0.0, 0.0, 0.0)
-        transform.transform.rotation = self.createQuaternion(qua[0], qua[1], qua[2], qua[3])
-        quat0 = tf_transformations.quaternion_from_euler(0.0, 0.0, math.pi)
-        ori = [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w]
-        quat = tf_transformations.quaternion_multiply(quat0, ori)
-        quatt = self.createQuaternion(quat[0], quat[1], quat[2], quat[3])
-        p.orientation = quatt """
 
         tf_offset = tf2_gmsgs.from_msg_msg(transform)
         tf_pose = tf2_gmsgs.from_msg_msg(p)
@@ -60,7 +52,8 @@ class Tier4Utils():
     # test passed
     # Self defined methods to get yaw from quaternion
     def getYawFromQuaternion(self, q: gmsgs.Quaternion) -> float:
-        euler = tf_transformations.euler_from_quaternion(q)
+        q_array = [q.x, q.y, q.z, q.w]
+        euler = tf_transformations.euler_from_quaternion(q_array)
 
         return euler[2]
     
@@ -73,10 +66,10 @@ class Tier4Utils():
     
     # test passed
     def createQuaternionFromYaw(self, yaw: float) -> gmsgs.Quaternion:
-        q = gmsgs.Quaternion()
         q = tf_transformations.quaternion_from_euler(0.0, 0.0, yaw)
-
-        return tf2_gmsgs.to_msg_msg(q)
+        qq = self.createQuaternion(q[0], q[1], q[2], q[3])
+        
+        return qq
     
     # test passed
     def calcAzimuthAngle(self, p_from: gmsgs.Point, p_to: gmsgs.Point) -> float:
