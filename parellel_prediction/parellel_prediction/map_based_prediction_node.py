@@ -21,18 +21,17 @@ import std_msgs.msg as smsgs
 # Outside imports
 import math
 from collections import deque # For objects_history
-import pickle
 import lanelet2
 import tf2_geometry_msgs as tf2_gmsgs
 import tf_transformations 
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-import io
 from typing import List
-from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId
+from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets
 from lanelet2.routing import RoutingGraph
 from lanelet2.traffic_rules import TrafficRules
 import lanelet2.traffic_rules as traffic_rules
+import numpy as np
 
 # Data structure
 class LaneletData:
@@ -60,6 +59,9 @@ time_horizon = 10.0
 sampling_time_interval = 0.5
 min_crosswalk_user_velocity = 1.0
 # Maybe use Node.declare_parameter() to get parameters from launch file
+
+# only for testing
+import json
 
 
 
@@ -97,6 +99,7 @@ class ParellelPathGeneratorNode(Node):
         self.pred_objects_pub = self.create_publisher(PredictedObjects, pareller_output_topic, 10)
         # Params for lanelet map
         self.lanelet_map = LaneletMap()
+        self.all_lanelets = None
         self.traffic_rules = None
         self.routing_graph = None
 
@@ -114,7 +117,8 @@ class ParellelPathGeneratorNode(Node):
         self.fromBinMsg(msg)
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
         
-        all_lanelets = self.query_laneletLayer(self.lanelet_map)
+        self.all_lanelets = self.query_laneletLayer(self.lanelet_map)
+        print(self.all_lanelets)
         # TODO: Get all crosswalks and walkways, line 552-555
 
 
@@ -335,28 +339,44 @@ class ParellelPathGeneratorNode(Node):
 
     # Following methods are for lanelet2 utils
     def fromBinMsg(self, msg: map_msgs.HADMapBin):
-        if map is None:
-            print("fromBinMsg: map is null pointer!")
+        if self.lanelet_map is None:
+            print("map is null pointer!")
             return
         
         # TODO: test!
-        data_str = [str(num) for num in msg.data]
-        ss = io.StringIO(data_str)
-        oa = pickle.Unpickler(ss)
+        # print(type(msg.data))
+        # with open('map_data.json', 'w') as f:
+        #     json.dump(msg.data.tolist(), f)
 
-        #self.lanelet_map.add(msg.data)
+        # data_str = [str(num) for num in msg.data.tolist()]
+        data_list = msg.data.tolist()
+        for d in data_list:
+            a_lanelet = self.get_a_lanelet(d)
+            self.lanelet_map.add(a_lanelet)
+        # self.lanelet_map = createMapFromLanelets(self.get_a_lanelet(d) for d in data_str)
 
-        # id_counter: lanelet2.Id = 0
-        id_counter = self.lanelet_map
-        registerId(id_counter)
+        id_counter = np.array(data_list, dtype=np.int64).tolist() # id_counter: lanelet2.Id, type: int64
+        for id in id_counter:
+            registerId(id)
         self.get_logger().info('[Parellel Map Based Prediction]: Id is registered!')
         
         self.traffic_rules = traffic_rules.create(traffic_rules.Locations.Germany, traffic_rules.Participants.Vehicle)
-        self.routing_graph = RoutingGraph.build(map, self.traffic_rules)
+        # self.routing_graph = RoutingGraph(self.lanelet_map, self.traffic_rules)
+        self.get_logger().info('[Parellel Map Based Prediction]: Routing graph is created!')
+    
+
+    def get_linestring_at_y(self, y):
+        return LineString3d(getId(), [Point3d(getId(), i, y, 0) for i in range(0, 3)])
+    
+
+    def get_a_lanelet(self, index=0):
+        return Lanelet(getId(),
+                        self.get_linestring_at_y(2+index),
+                        self.get_linestring_at_y(0+index))
 
 
     def query_laneletLayer(self, ll_map: LaneletMap) -> ConstLanelets:
-        lanelets = ConstLanelets()
+        lanelets: ConstLanelets() = []
         if ll_map is None:
             print("No map received!")
             return lanelets
