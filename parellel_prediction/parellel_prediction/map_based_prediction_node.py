@@ -27,9 +27,9 @@ import tf_transformations
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from typing import List
-from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets
+from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets, AttributeMap
+print(dir(lanelet2.projection))
 from lanelet2.routing import RoutingGraph
-from lanelet2.traffic_rules import TrafficRules
 import lanelet2.traffic_rules as traffic_rules
 import numpy as np
 
@@ -102,6 +102,7 @@ class ParellelPathGeneratorNode(Node):
         self.all_lanelets = None
         self.traffic_rules = None
         self.routing_graph = None
+        self.crosswalks_ = None
 
         self.tf_buffer = Buffer()
         self.objects_history_ = {}
@@ -118,8 +119,11 @@ class ParellelPathGeneratorNode(Node):
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
         
         self.all_lanelets = self.query_laneletLayer(self.lanelet_map)
-        print(self.all_lanelets)
-        # TODO: Get all crosswalks and walkways, line 552-555
+        crosswalks = self.query_crosswalkLanelets(self.all_lanelets)
+        walkways = self.query_walkwayLanelets(self.all_lanelets)
+        self.crosswalks_ = crosswalks
+        self.crosswalks_.extend(walkways)
+        print('crosswalks: ', self.crosswalks_)
 
 
     def object_callback(self, in_objects: TrackedObjects):
@@ -343,11 +347,6 @@ class ParellelPathGeneratorNode(Node):
             print("map is null pointer!")
             return
         
-        # TODO: test!
-        # print(type(msg.data))
-        # with open('map_data.json', 'w') as f:
-        #     json.dump(msg.data.tolist(), f)
-
         # data_str = [str(num) for num in msg.data.tolist()]
         data_list = msg.data.tolist()
         for d in data_list:
@@ -375,6 +374,16 @@ class ParellelPathGeneratorNode(Node):
                         self.get_linestring_at_y(0+index))
 
 
+    def query_subtypeLanelets(self, lls: ConstLanelets, subtype) -> ConstLanelets:
+        subtype_lanelets: ConstLanelets() = []
+        for ll in lls:
+            print(ll.attributes)
+            #if ll.attributes["Subtype"] == subtype:
+            #   subtype_lanelets.append(ll)
+        
+        return subtype_lanelets
+
+
     def query_laneletLayer(self, ll_map: LaneletMap) -> ConstLanelets:
         lanelets: ConstLanelets() = []
         if ll_map is None:
@@ -388,8 +397,12 @@ class ParellelPathGeneratorNode(Node):
     
 
     def query_crosswalkLanelets(self, lls: ConstLanelets) -> ConstLanelets:
-        pass
+        return self.query_subtypeLanelets(lls, "crosswalk")
 
+
+    def query_walkwayLanelets(self, lls: ConstLanelets) -> ConstLanelets:
+        return self.query_subtypeLanelets(lls, "walkway")
+    
 
     def getCurrentLanelets(self, object: TrackedObject) -> LaneletsData:
         return None
