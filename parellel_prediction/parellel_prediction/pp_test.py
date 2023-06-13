@@ -7,6 +7,8 @@ from rclpy.node import Node
 import geometry_msgs.msg as gmsgs
 import numpy as np
 import tf_transformations 
+import geopandas
+from shapely.geometry import Point, LineString, MultiLineString
 
 # input topics
 input_topic_objects = '/perception/object_recognition/tracking/objects'
@@ -132,6 +134,14 @@ class TestClass(Node):
         tar['d'] = 2.0
         tar['d_acc'] = 2.0
         print(self.ppg.calcLatCoefficients(cur, tar, 1))
+    
+
+    def test_geopandas(self):
+        s = geopandas.GeoSeries([LineString([(0, 0), (1, 1), (0, 1)]),LineString([(10, 0), (10, 5), (0, 0)]),MultiLineString([((0, 0), (1, 0)), ((-1, 0), (1, 0))]),])
+        print(s.length)
+        print(s.length[0])
+        print(s.length.max())
+
 
 
 
@@ -144,7 +154,8 @@ def main(args=None):
     # tc.test_ppg()
     # tc.test_ran()
     
-    tc.test_method_in_selfutils()
+    #tc.test_method_in_selfutils()
+    tc.test_geopandas()
 
     # rclpy.spin(tc)
 

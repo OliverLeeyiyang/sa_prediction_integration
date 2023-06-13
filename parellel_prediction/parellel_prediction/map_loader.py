@@ -1,9 +1,13 @@
 from lanelet2.io import Origin, loadRobust
-from lanelet2.core import Lanelet
+from lanelet2.core import Lanelet, ConstLanelet, ConstLineString3d, BasicPoint3d, LineString3d, getId, Point3d
 from lanelet2.core import LaneletMap, GPSPoint
 from lanelet2.projection import UTMProjector
 import rclpy
 from .mgrs_projector import MGRSProjector
+import geopandas as gpd
+import math
+import numpy as np
+
 
 
 class MapLoader:
@@ -52,8 +56,102 @@ class MapLoader:
                 lanelet_obj.setCenterline(fine_center_line)
 
 
-    def generateFineCenterline(self, lanelet_obj: Lanelet, resolution: float):
-        pass
+    def generateFineCenterline(self, lanelet_obj: ConstLanelet, resolution: float) -> LineString3d:
+        # Get length of longer border
+        s = gpd.GeoSeries([lanelet_obj.leftBound, lanelet_obj.rightBound])
+        # left_length = s.length[0]
+        # right_length = s.length[1]
+        longer_distance = s.length.max()
+        num_segments = max(math.ceil(longer_distance / resolution), 1)
+        # Resample points
+        left_points = self.resamplePoints(lanelet_obj.leftBound, num_segments)
+        right_points = self.resamplePoints(lanelet_obj.rightBound, num_segments)
+
+        # Create centerline
+        centerline = LineString3d(getId())
+        for i in range(num_segments+1):
+            # Add ID for the average point of left and right
+            center_basic_point = (right_points[i] + left_points[i]) / 2
+            center_point = Point3d(getId(), center_basic_point.x(), center_basic_point.y(), center_basic_point.z())
+            centerline.push_back(center_point)
+        
+        return centerline
+    
+
+    def resamplePoints(self, line_string: ConstLineString3d, num_segments: int):
+        # Calculate length
+        line_length = gpd.GeoSeries([line_string]).length[0]
+        # Calculate accumulated lengths
+        accumulated_lengths = self.calculateAccumulatedLengths(line_string)
+        if len(accumulated_lengths) < 2:
+            return []
+        # Create each segment
+        resampled_points: BasicPoint3d = []
+        i = 0
+        while i <=num_segments:
+            # Find two nearest points
+            target_length = (float(i) / num_segments) * line_length
+            index_pair = self.find_nearest_index_pair(accumulated_lengths, target_length)
+
+            # Apply linear interpolation
+            back_point = line_string[index_pair[0]]
+            front_point = line_string[index_pair[1]]
+            direction_vector = front_point - back_point
+
+            back_length = accumulated_lengths[index_pair[0]]
+            front_length = accumulated_lengths[index_pair[1]]
+            segment_length = front_length - back_length
+            target_point = back_point + (direction_vector * (target_length - back_length) / segment_length)
+
+            # Add to list
+            resampled_points.append(target_point)
+            i += 1
+        
+        return resampled_points
+    
+
+    def calculateAccumulatedLengths(self, line_string: ConstLineString3d):
+        segment_distances = self.calculateSegmentDistances(line_string)
+        accumulated_lengths = [0]
+        # accumulated_lengths.extend
+        accumulated_lengths += np.cumsum(segment_distances).tolist()
+
+        return accumulated_lengths
+
+
+    def calculateSegmentDistances(self, line_string: ConstLineString3d):
+        segment_distances = []
+        i = 1
+        while i < len(line_string):
+            s = gpd.GeoSeries([line_string[i]])
+            s2 = gpd.GeoSeries([line_string[i - 1]])
+            distance = s.distance(s2, align=False)[0]
+            segment_distances.append(distance)
+            i += 1
+        
+        return segment_distances
+    
+
+    def find_nearest_index_pair(self, accumulated_lengths: list, target_length: float):
+        # List size
+        N = len(accumulated_lengths)
+
+        # Front
+        if target_length < accumulated_lengths[1]:
+            return (0, 1)
+
+        # Back
+        if target_length > accumulated_lengths[N - 2]:
+            return (N - 2, N - 1)
+
+        # Middle
+        for i in range(1, N):
+            if (accumulated_lengths[i - 1] <= target_length <= accumulated_lengths[i]):
+                return (i - 1, i)
+
+        # Throw an exception because this never happens
+        raise RuntimeError("No nearest point found.")
+
 
 
 

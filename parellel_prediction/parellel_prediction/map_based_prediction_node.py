@@ -28,7 +28,7 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from typing import List
 from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets, AttributeMap
-print(dir(lanelet2.projection))
+# print(dir(ConstLanelet.leftBound))
 from lanelet2.routing import RoutingGraph
 import lanelet2.traffic_rules as traffic_rules
 import numpy as np
@@ -43,6 +43,7 @@ LaneletsData = List[LaneletData]
 # Local imports
 from .parellel_path_generator import PathGenerator
 from .from_tier4_utils import Tier4Utils
+from .map_loader import MapLoader
 ConstLanelets = List[ConstLanelet]
 Lanelets = List[Lanelet]
 
@@ -106,6 +107,11 @@ class ParellelPathGeneratorNode(Node):
 
         self.tf_buffer = Buffer()
         self.objects_history_ = {}
+
+        # test
+        map_file_path = '/home/oliver/autoware_map/sample-map-planning/lanelet2_map.osm'
+        self.ml = MapLoader(map_file_path)
+        self.lanelet_map = self.ml.load_map_for_prediction()
 
     
 

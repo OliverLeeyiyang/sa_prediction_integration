@@ -3,11 +3,12 @@ import math
 import geographiclib
 from lanelet2.projection import Projector
 from lanelet2.core import GPSPoint, BasicPoint3d
+from lanelet2.io import Origin
 
 
 
 class MGRSProjector:
-    def __init__(self, origin):
+    def __init__(self, origin = Origin(0.0, 0.0)):
         super().__init__(Projector(origin))
         self.origin = origin
         self.projected_grid_ = ""
