@@ -2,6 +2,8 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.time import Time
+import io
+import pickle
 
 # Import message types
 from autoware_auto_perception_msgs.msg import ObjectClassification
@@ -44,12 +46,15 @@ LaneletsData = List[LaneletData]
 from .parellel_path_generator import PathGenerator
 from .from_tier4_utils import Tier4Utils
 from .map_loader import MapLoader
+
+# Definition of new types
 ConstLanelets = List[ConstLanelet]
 Lanelets = List[Lanelet]
 
 # input topics
 input_topic_objects = '/perception/object_recognition/tracking/objects'
-input_topic_map = '/map/vector_map'
+#input_topic_map = '/map/vector_map'
+input_topic_map = '/output/lanelet2_map'
 
 # output topics
 output_topic_objects = '/perception/object_recognition/objects'
@@ -60,6 +65,7 @@ time_horizon = 10.0
 sampling_time_interval = 0.5
 min_crosswalk_user_velocity = 1.0
 # Maybe use Node.declare_parameter() to get parameters from launch file
+
 
 # only for testing
 import json
@@ -74,6 +80,10 @@ class ParellelPathGeneratorNode(Node):
     cd ~/ma_prediction_integration/src/parellel_prediction/launch
 
     ros2 launch planning_simulator.launch.xml map_path:=$HOME/autoware_map/sample-map-planning vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit
+
+    // To test map callback:
+
+    ros2 run map_loader lanelet2_map_loader --ros-args -p lanelet2_map_path:=$HOME/autoware_map/sample-map-planning/lanelet2_map.osm
 
     Topics
     --------------------
@@ -109,9 +119,11 @@ class ParellelPathGeneratorNode(Node):
         self.objects_history_ = {}
 
         # test
+        self.get_logger().info('[Parellel Map Based Prediction]: Start loading lanelet')
         map_file_path = '/home/oliver/autoware_map/sample-map-planning/lanelet2_map.osm'
         self.ml = MapLoader(map_file_path)
         self.lanelet_map = self.ml.load_map_for_prediction()
+        self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
 
     
 
@@ -353,6 +365,17 @@ class ParellelPathGeneratorNode(Node):
             print("map is null pointer!")
             return
         
+        # Method1
+        data_str = str(msg.data)
+        print('data_str: ', data_str[-1000:])
+        # data_stream = io.BytesIO(data_str)
+        # n = pickle.load(data_stream)
+        # print('numbers: ', n)
+        
+        map = pickle.loads(data_str)
+        id = pickle.loads(data_str)
+        print(id)
+        # Method2
         # data_str = [str(num) for num in msg.data.tolist()]
         data_list = msg.data.tolist()
         for d in data_list:

@@ -9,6 +9,8 @@ import numpy as np
 import tf_transformations 
 import geopandas
 from shapely.geometry import Point, LineString, MultiLineString
+from array import array
+import pickle
 
 # input topics
 input_topic_objects = '/perception/object_recognition/tracking/objects'
@@ -141,7 +143,15 @@ class TestClass(Node):
         print(s.length)
         print(s.length[0])
         print(s.length.max())
-
+    
+    def test_map(self):
+        aa = array('l', [1, 2, 3, 4, 5])
+        print('type aa is:', type(aa))
+        ab = pickle.dumps(aa)
+        print('ab is:', ab)
+        ac = pickle.loads(ab)
+        print('type ac is:', type(ac))
+        print('ac is:', ac)
 
 
 
@@ -155,7 +165,8 @@ def main(args=None):
     # tc.test_ran()
     
     #tc.test_method_in_selfutils()
-    tc.test_geopandas()
+    # tc.test_geopandas()
+    tc.test_map()
 
     # rclpy.spin(tc)
 

@@ -1,21 +1,22 @@
-from lanelet2.io import Origin, loadRobust
+from lanelet2.io import Origin, loadRobust, load
 from lanelet2.core import Lanelet, ConstLanelet, ConstLineString3d, BasicPoint3d, LineString3d, getId, Point3d
 from lanelet2.core import LaneletMap, GPSPoint
-from lanelet2.projection import UTMProjector
-import rclpy
+from lanelet2.projection import UtmProjector
+from rclpy.node import Node
 from .mgrs_projector import MGRSProjector
 import geopandas as gpd
 import math
 import numpy as np
-
+# print(dir(ConstLineString3d))
 
 
 class MapLoader:
     def __init__(self, map_file_path):
         self.lanelet2_filename = map_file_path
         self.lanelet2_map_projector_type = "MGRS"
+        #self.lanelet2_map_projector_type = "UTM"
         self.center_line_resolution = 5.0
-        self.lanelet2_map = None
+        self.lanelet2_map = LaneletMap()
     
 
     def load_map_for_prediction(self):
@@ -33,25 +34,26 @@ class MapLoader:
         elif lanelet2_map_projector_type == "UTM":
             map_origin_lat = 0.0
             map_origin_lon = 0.0
-            position = GPSPoint(map_origin_lat, map_origin_lon, 0.0)
+            position = GPSPoint(map_origin_lat, map_origin_lon)
             origin = Origin(position)
-            projector = UTMProjector(origin)
+            projector = UtmProjector(origin)
             map, load_errors = loadRobust(lanelet2_filename, projector)
-            if load_errors is None:
+            # print(type(load_errors))
+            if len(load_errors) == 0:
+                # print("No load errors")
                 return map
         else:
-            logger = rclpy.logging.get_logger("map_loader")
-            rclpy.logging.error(logger, "lanelet2_map_projector_type is not supported")
+            print("lanelet2_map_projector_type is not supported")
             return None
         
         for error in load_errors:
-            rclpy.logging.error_stream(logger, error)
+            print(error)
         return None
 
 
     def overwriteLaneletsCenterline(self, lanelet_map: LaneletMap, resolution: float, force_overwrite: bool):
         for lanelet_obj in lanelet_map.laneletLayer:
-            if force_overwrite or not lanelet_obj.hasCustomCenterline():
+            if force_overwrite or lanelet_obj.centerline is None:
                 fine_center_line = self.generateFineCenterline(lanelet_obj, resolution)
                 lanelet_obj.setCenterline(fine_center_line)
 

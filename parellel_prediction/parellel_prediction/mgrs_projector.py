@@ -7,9 +7,8 @@ from lanelet2.io import Origin
 
 
 
-class MGRSProjector:
+class MGRSProjector(Projector):
     def __init__(self, origin = Origin(0.0, 0.0)):
-        super().__init__(Projector(origin))
         self.origin = origin
         self.projected_grid_ = ""
     
