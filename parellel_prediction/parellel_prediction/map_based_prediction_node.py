@@ -85,6 +85,8 @@ class ParellelPathGeneratorNode(Node):
 
     ros2 run map_loader lanelet2_map_loader --ros-args -p lanelet2_map_path:=$HOME/autoware_map/sample-map-planning/lanelet2_map.osm
 
+    ros2 launch autoware_launch planning_simulator.launch.xml map_path:=$HOME/autoware_map/sample-map-planning vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit
+
     Topics
     --------------------
 
