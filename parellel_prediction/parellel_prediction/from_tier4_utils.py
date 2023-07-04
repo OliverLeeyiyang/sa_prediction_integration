@@ -52,10 +52,24 @@ class Tier4Utils():
     # test passed
     # Self defined methods to get yaw from quaternion
     def getYawFromQuaternion(self, q: gmsgs.Quaternion) -> float:
-        q_array = [q.x, q.y, q.z, q.w]
-        euler = tf_transformations.euler_from_quaternion(q_array)
+        # q_array = [q.x, q.y, q.z, q.w]
+        # euler = tf_transformations.euler_from_quaternion(q_array)
+        # return euler[2]
+        sqx = q.x * q.x
+        sqy = q.y * q.y
+        sqz = q.z * q.z
+        sqw = q.w * q.w
 
-        return euler[2]
+        sarg = -2.0 * (q.x * q.z - q.w * q.y) / (sqx + sqy + sqz + sqw)
+
+        if sarg <= -0.99999:
+            yaw = -2.0 * math.atan2(q.y, q.x)
+        elif sarg >= 0.99999:
+            yaw = 2.0 * math.atan2(q.y, q.x)
+        else:
+            yaw = math.atan2(2 * (q.x * q.y + q.w * q.z), sqw + sqx - sqy - sqz)
+        
+        return yaw
     
 
     def toHexString(self, id:uuid.UUID) -> str:

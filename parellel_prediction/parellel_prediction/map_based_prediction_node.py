@@ -27,7 +27,7 @@ import tf_transformations
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from typing import List
-from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets, AttributeMap
+from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets, AttributeMap, BasicPoint2d
 # print(dir(ConstLanelet.leftBound))
 from lanelet2.routing import RoutingGraph
 import lanelet2.traffic_rules as traffic_rules
@@ -36,8 +36,9 @@ import numpy as np
 # Data structure
 class LaneletData:
     def __init__(self):
-        self.lanelet = lanelet2.core.Lanelet()
+        self.lanelet = Lanelet()
         self.probability: float
+
 LaneletsData = List[LaneletData]
 
 # Local imports
@@ -335,7 +336,7 @@ class ParellelPathGeneratorNode(Node):
 
     # TODO: finish this method for case 2 and 3. And input lanelet_map_ptr should be lanelet::LaneletMapPtr
     # still have two inputs: object: TrackedObject, lanlet_map_ptr: LaneletMapPtr
-    def changeLabelForPrediction(self, label: ObjectClassification.label) -> ObjectClassification.label:
+    def changeLabelForPrediction(self, label: ObjectClassification.label, object: TrackedObject, lanelet_map: LaneletMap) -> ObjectClassification.label:
         ''' Change label for prediction.
 
             Case 1: For CAR, BUS, TRUCK, TRAILER, UNKNOWN, do not change label.
@@ -441,8 +442,31 @@ class ParellelPathGeneratorNode(Node):
         return self.query_subtypeLanelets(lls, "walkway")
     
 
+    # TODO: finish this method
     def getCurrentLanelets(self, object: TrackedObject) -> LaneletsData:
-        return None
+        # obstacle point
+        search_point = BasicPoint2d(object.kinematics.pose_with_covariance.pose.position.x, object.kinematics.pose_with_covariance.pose.position.y)
+
+        # nearest lanelet
+        surrounding_lanelets = self.findNearest(self.lanelet_map.laneletLayer, search_point, 10)
+
+        # No Closest Lanelets
+        if not surrounding_lanelets:
+            return []
+        
+        closest_lanelets: LaneletsData = []
+        for lanelet in surrounding_lanelets:
+            # Check if the close lanelets meet the necessary condition for start lanelets and
+            # Check if similar lanelet is inside the closest lanelet
+            if not self.checkCloseLaneletCondition(lanelet, object, search_point) or self.isDuplicated(lanelet, closest_lanelets):
+                continue
+        
+        closest_lanelet = LaneletData()
+        closest_lanelet.lanelet = lanelet[1]
+        closest_lanelet.probability = self.calculateLocalLikelihood(lanelet[1], object)
+        closest_lanelets.append(closest_lanelet)
+
+        return closest_lanelets
 
 
 def main(args=None):
