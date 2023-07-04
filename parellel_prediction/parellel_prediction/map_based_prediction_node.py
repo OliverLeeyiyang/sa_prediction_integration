@@ -125,13 +125,15 @@ class ParellelPathGeneratorNode(Node):
 
         # test
         self.get_logger().info('[Parellel Map Based Prediction]: Start loading lanelet')
-        map_file_path = '/home/oliver/autoware_map/sample-map-planning/mapping_example.osm'
-        # self.ml = MapLoader(map_file_path)
-        # self.lanelet_map = self.ml.load_map_for_prediction()
+        # map_file_path = '/home/oliver/autoware_map/sample-map-planning-m/lanelet2_map.osm'
+        map_file_path = '/home/oliver/autoware_map/sample-map-planning-modi/lanelet2_map.osm'
+        self.ml = MapLoader(map_file_path)
+        self.lanelet_map = self.ml.load_map_for_prediction()
 
-        projector = UtmProjector(lanelet2.io.Origin(0.0, 0.0))
-        self.lanelet_map, load_errors = lanelet2.io.loadRobust(map_file_path, projector)
-        assert not load_errors
+        # projector = UtmProjector(lanelet2.io.Origin(35.23808753540768, 139.9009591876285))
+        #projector = UtmProjector(lanelet2.io.Origin(49, 8.4))
+        #self.lanelet_map, load_errors = lanelet2.io.loadRobust(map_file_path, projector)
+        #assert not load_errors
 
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
 

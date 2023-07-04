@@ -1,20 +1,19 @@
 from lanelet2.io import Origin, loadRobust, load
 from lanelet2.core import Lanelet, ConstLanelet, ConstLineString3d, BasicPoint3d, LineString3d, getId, Point3d
 from lanelet2.core import LaneletMap, GPSPoint
-from lanelet2.projection import UtmProjector
+from lanelet2.projection import UtmProjector, LocalCartesianProjector
 from rclpy.node import Node
 from .mgrs_projector import MGRSProjector
 import geopandas as gpd
 import math
 import numpy as np
-# print(dir(ConstLineString3d))
 
 
 class MapLoader:
     def __init__(self, map_file_path):
         self.lanelet2_filename = map_file_path
-        self.lanelet2_map_projector_type = "MGRS"
-        #self.lanelet2_map_projector_type = "UTM"
+        #self.lanelet2_map_projector_type = "MGRS"
+        self.lanelet2_map_projector_type = "UTM"
         self.center_line_resolution = 5.0
         self.lanelet2_map = LaneletMap()
     
@@ -32,8 +31,8 @@ class MapLoader:
             if load_errors is None:
                 return map
         elif lanelet2_map_projector_type == "UTM":
-            map_origin_lat = 0.0
-            map_origin_lon = 0.0
+            map_origin_lat = 35.23808753540768
+            map_origin_lon = 139.9009591876285
             position = GPSPoint(map_origin_lat, map_origin_lon)
             origin = Origin(position)
             projector = UtmProjector(origin)
