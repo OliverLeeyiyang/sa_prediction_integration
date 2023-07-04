@@ -2,11 +2,6 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.time import Time
-import io
-import pickle
-import os
-import tempfile
-from lanelet2.projection import UtmProjector, LocalCartesianProjector
 
 # Import message types
 from autoware_auto_perception_msgs.msg import ObjectClassification
@@ -56,8 +51,9 @@ Lanelets = List[Lanelet]
 
 # input topics
 input_topic_objects = '/perception/object_recognition/tracking/objects'
-#input_topic_map = '/map/vector_map'
-input_topic_map = '/output/lanelet2_map'
+# Here we don't subscribe the map topic, instead, we use map_loader to load map
+# input_topic_map = '/map/vector_map'
+# input_topic_map = '/output/lanelet2_map'
 
 # output topics
 output_topic_objects = '/perception/object_recognition/objects'
@@ -70,8 +66,8 @@ min_crosswalk_user_velocity = 1.0
 # Maybe use Node.declare_parameter() to get parameters from launch file
 
 
-# only for testing
-import json
+# load params from yaml file
+Map_Path = '/home/oliver/ma_prediction_integration/sample-map-planning-modi/lanelet2_map.osm'
 
 
 
@@ -110,9 +106,10 @@ class ParellelPathGeneratorNode(Node):
         self.pg = PathGenerator(time_horizon_, sampling_time_interval_, min_crosswalk_user_velocity_)
         self.tu = Tier4Utils()
 
-        self.map_sub = self.create_subscription(map_msgs.HADMapBin, input_topic_map, self.map_callback, 1)
+        # self.map_sub = self.create_subscription(map_msgs.HADMapBin, input_topic_map, self.map_callback, 1)
         self.object_sub = self.create_subscription(TrackedObjects, input_topic_objects, self.object_callback, 10)
         self.pred_objects_pub = self.create_publisher(PredictedObjects, pareller_output_topic, 10)
+
         # Params for lanelet map
         self.lanelet_map = LaneletMap()
         self.all_lanelets = None
@@ -123,18 +120,11 @@ class ParellelPathGeneratorNode(Node):
         self.tf_buffer = Buffer()
         self.objects_history_ = {}
 
-        # test
+        # load lanelet map for prediction
         self.get_logger().info('[Parellel Map Based Prediction]: Start loading lanelet')
-        # map_file_path = '/home/oliver/autoware_map/sample-map-planning-m/lanelet2_map.osm'
-        map_file_path = '/home/oliver/autoware_map/sample-map-planning-modi/lanelet2_map.osm'
+        map_file_path = Map_Path
         self.ml = MapLoader(map_file_path)
         self.lanelet_map = self.ml.load_map_for_prediction()
-
-        # projector = UtmProjector(lanelet2.io.Origin(35.23808753540768, 139.9009591876285))
-        #projector = UtmProjector(lanelet2.io.Origin(49, 8.4))
-        #self.lanelet_map, load_errors = lanelet2.io.loadRobust(map_file_path, projector)
-        #assert not load_errors
-
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
 
     
@@ -143,7 +133,8 @@ class ParellelPathGeneratorNode(Node):
     def updateLateralKinematicsVector(self):
         pass
 
-    def map_callback(self, msg: map_msgs.HADMapBin):
+    # This methods won't be used because we can't use boost in python
+    """ def map_callback(self, msg: map_msgs.HADMapBin):
         self.get_logger().info('[Parellel Map Based Prediction]: Start loading lanelet')
         self.fromBinMsg(msg)
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
@@ -153,7 +144,7 @@ class ParellelPathGeneratorNode(Node):
         walkways = self.query_walkwayLanelets(self.all_lanelets)
         self.crosswalks_ = crosswalks
         self.crosswalks_.extend(walkways)
-        print('crosswalks: ', self.crosswalks_)
+        print('crosswalks: ', self.crosswalks_) """
 
 
     def object_callback(self, in_objects: TrackedObjects):
@@ -161,8 +152,8 @@ class ParellelPathGeneratorNode(Node):
         # if self.lanelet_map is None:
         #     return
         # test
-        print('[pyt called pose ]: ', in_objects[0].kinematics.pose_with_covariance.pose)
-        print('[pyt called twist]: ', in_objects[0].kinematics.twist_with_covariance.twist)
+        # print('[pyt called pose ]: ', in_objects[0].kinematics.pose_with_covariance.pose)
+        # print('[pyt called twist]: ', in_objects[0].kinematics.twist_with_covariance.twist)
 
         world2map_transform = self.tf_buffer.lookup_transform('map', in_objects.header.frame_id, in_objects.header.stamp, rclpy.duration.Duration(seconds=1.0))
         map2world_transform = self.tf_buffer.lookup_transform(in_objects.header.frame_id, 'map', in_objects.header.stamp, rclpy.duration.Duration(seconds=1.0))
@@ -372,7 +363,7 @@ class ParellelPathGeneratorNode(Node):
 
 
     # Following methods are for lanelet2 utils
-    def fromBinMsg(self, msg: map_msgs.HADMapBin):
+    """ def fromBinMsg(self, msg: map_msgs.HADMapBin):
         if self.lanelet_map is None:
             print("map is null pointer!")
             return
@@ -402,17 +393,17 @@ class ParellelPathGeneratorNode(Node):
         
         self.traffic_rules = traffic_rules.create(traffic_rules.Locations.Germany, traffic_rules.Participants.Vehicle)
         # self.routing_graph = RoutingGraph(self.lanelet_map, self.traffic_rules)
-        self.get_logger().info('[Parellel Map Based Prediction]: Routing graph is created!')
+        self.get_logger().info('[Parellel Map Based Prediction]: Routing graph is created!') """
     
 
-    def get_linestring_at_y(self, y):
+    """ def get_linestring_at_y(self, y):
         return LineString3d(getId(), [Point3d(getId(), i, y, 0) for i in range(0, 3)])
     
 
     def get_a_lanelet(self, index=0):
         return Lanelet(getId(),
                         self.get_linestring_at_y(2+index),
-                        self.get_linestring_at_y(0+index))
+                        self.get_linestring_at_y(0+index)) """
 
 
     def query_subtypeLanelets(self, lls: ConstLanelets, subtype) -> ConstLanelets:

@@ -1,9 +1,8 @@
-from lanelet2.io import Origin, loadRobust, load
+from lanelet2.io import Origin, loadRobust
 from lanelet2.core import Lanelet, ConstLanelet, ConstLineString3d, BasicPoint3d, LineString3d, getId, Point3d
 from lanelet2.core import LaneletMap, GPSPoint
-from lanelet2.projection import UtmProjector, LocalCartesianProjector
-from rclpy.node import Node
-from .mgrs_projector import MGRSProjector
+from lanelet2.projection import UtmProjector
+# from ...backup.mgrs_projector import MGRSProjector
 import geopandas as gpd
 import math
 import numpy as np
@@ -26,10 +25,11 @@ class MapLoader:
 
     def load_map(self, lanelet2_filename: str, lanelet2_map_projector_type: str) -> LaneletMap:
         if lanelet2_map_projector_type == "MGRS":
-            projector = MGRSProjector()
-            map, load_errors = loadRobust(lanelet2_filename, projector)
-            if load_errors is None:
-                return map
+            # projector = MGRSProjector()
+            # map, load_errors = loadRobust(lanelet2_filename, projector)
+            # if load_errors is None:
+            #    return map
+            print("MGRS is not supported")
         elif lanelet2_map_projector_type == "UTM":
             map_origin_lat = 35.23808753540768
             map_origin_lon = 139.9009591876285

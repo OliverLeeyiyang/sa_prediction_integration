@@ -26,7 +26,6 @@ setup(
             'parellel_map_based_prediction_node = parellel_prediction.map_based_prediction_node:main',
             'visual_node = parellel_prediction.visualization:main',
             'map_loader = parellel_prediction.map_loader:main',
-            'mgrs_projector = parellel_prediction.mgrs_projector:main',
         ],
     },
 )
