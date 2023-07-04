@@ -67,14 +67,14 @@ min_crosswalk_user_velocity = 1.0
 
 
 # load params from yaml file
-Map_Path = '/home/oliver/ma_prediction_integration/sample-map-planning-modi/lanelet2_map.osm'
+Map_Path = '/home/oliver/ma_prediction_integration/src/maps/sample-map-planning-modi/lanelet2_map.osm'
 
 
 
 class ParellelPathGeneratorNode(Node):
     '''Node for generating path for other vehicles and crosswalk users.
 
-    Launch simulation:
+    // To launch self-modified simulation:
 
     cd ~/ma_prediction_integration/src/parellel_prediction/launch
 
@@ -86,12 +86,19 @@ class ParellelPathGeneratorNode(Node):
 
     ros2 launch autoware_launch planning_simulator.launch.xml map_path:=$HOME/autoware_map/sample-map-planning vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit
 
+    // Use this for final testing!
+    ros2 launch autoware_launch planning_simulator.launch.xml map_path:=$HOME/ma_prediction_integration/src/maps/sample-map-planning-modi vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit
+
+    ros2 run parellel_prediction parellel_map_based_prediction_node
+
+    ros2 run parellel_prediction visual_node
+
     Topics
     --------------------
 
     Input topics  :     /perception/object_recognition/tracking/objects : autoware_auto_perception_msgs/TrackedObjects
     
-                        /map/vector_map : autoware_auto_mapping_msgs/msg/HADMapBin
+                        /map/vector_map : autoware_auto_mapping_msgs/msg/HADMapBin (Not used)
 
     Output topics :     /perception/object_recognition/objects : autoware_auto_perception_msgs/PredictedObjects
 
@@ -149,8 +156,8 @@ class ParellelPathGeneratorNode(Node):
 
     def object_callback(self, in_objects: TrackedObjects):
         # Guard for map pointer and frame transformation
-        # if self.lanelet_map is None:
-        #     return
+        if self.lanelet_map is None:
+            return
         # test
         # print('[pyt called pose ]: ', in_objects[0].kinematics.pose_with_covariance.pose)
         # print('[pyt called twist]: ', in_objects[0].kinematics.twist_with_covariance.twist)
@@ -161,8 +168,6 @@ class ParellelPathGeneratorNode(Node):
 
         if world2map_transform is None or map2world_transform is None:
             return
-        #if world2map_transform is None or map2world_transform or
-        #    return
         
         # Remove old objects information in object history(line 582) TODO: test this
         objects_detected_time = Time.from_msg(in_objects.header.stamp).seconds_nanoseconds()
@@ -180,7 +185,7 @@ class ParellelPathGeneratorNode(Node):
             # seems like this is not necessary
             object_id = self.tu.toHexString(object.object_id)
 
-            transformed_object = object # transformed_object: TrackedObject()
+            transformed_object: TrackedObject = object
 
             # transform object frame if it's based on map frame
             if in_objects.header.frame_id != 'map':
@@ -205,8 +210,8 @@ class ParellelPathGeneratorNode(Node):
                 # Update object yaw and velocity
                 transformed_object = self.updateObjectData(transformed_object)
                 # test
-                print('[pyt updated pose ]: ', transformed_object.kinematics.pose_with_covariance.pose)
-                print('[pyt updated twist]: ', transformed_object.kinematics.twist_with_covariance.twist)
+                # print('[pyt updated pose ]: ', transformed_object.kinematics.pose_with_covariance.pose)
+                # print('[pyt updated twist]: ', transformed_object.kinematics.twist_with_covariance.twist)
 
                 # TODO: Get Closest Lanelet (line 624)
                 current_lanelets = self.getCurrentLanelets(transformed_object)

@@ -1,6 +1,6 @@
 /**:
   ros__parameters:
-    map_path: '/home/oliver/ma_prediction_integration/sample-map-planning-modi/lanelet2_map.osm'
+    map_path: '/home/oliver/ma_prediction_integration/src/maps/sample-map-planning-modi/lanelet2_map.osm'
     input_topic_objects: '/perception/object_recognition/tracking/objects'
     output_topic_objects: '/perception/object_recognition/objects'
     pareller_output_topic: '/parellel/objects'
