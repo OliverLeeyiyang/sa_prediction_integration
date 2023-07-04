@@ -4,8 +4,8 @@
 HADMap2osm::HADMap2osm()
 : Node("hadmap2osm")
 {
-    // topic_name = "/map/vector_map";
-    topic_name = "/output/lanelet2_map";
+    topic_name = "/map/vector_map";
+    // topic_name = "/output/lanelet2_map";
     sub_map_ = this->create_subscription<HADMapBin>(
         topic_name, rclcpp::QoS{1}.transient_local(),
         std::bind(&HADMap2osm::mapCallback, this, std::placeholders::_1));
@@ -17,9 +17,9 @@ void HADMap2osm::mapCallback(const HADMapBin::ConstSharedPtr msg)
 {
     RCLCPP_INFO(get_logger(), "[Map Based Prediction]: Start loading lanelet");
     lanelet_map_ptr_ = std::make_shared<lanelet::LaneletMap>();
-    write(tempfile("map.osm"),*lanelet_map_ptr_);
 
     HADMap2osm::fromBinMsg(*msg, lanelet_map_ptr_);
+    write(tempfile("map.osm"),*lanelet_map_ptr_);
     RCLCPP_INFO(get_logger(), "[Map Based Prediction]: Map is loaded");
 }
 

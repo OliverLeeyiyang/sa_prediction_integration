@@ -4,6 +4,9 @@ from rclpy.node import Node
 from rclpy.time import Time
 import io
 import pickle
+import os
+import tempfile
+from lanelet2.projection import UtmProjector, LocalCartesianProjector
 
 # Import message types
 from autoware_auto_perception_msgs.msg import ObjectClassification
@@ -122,9 +125,14 @@ class ParellelPathGeneratorNode(Node):
 
         # test
         self.get_logger().info('[Parellel Map Based Prediction]: Start loading lanelet')
-        map_file_path = '/home/oliver/autoware_map/sample-map-planning/lanelet2_map.osm'
-        self.ml = MapLoader(map_file_path)
-        self.lanelet_map = self.ml.load_map_for_prediction()
+        map_file_path = '/home/oliver/autoware_map/sample-map-planning/mapping_example.osm'
+        # self.ml = MapLoader(map_file_path)
+        # self.lanelet_map = self.ml.load_map_for_prediction()
+
+        projector = UtmProjector(lanelet2.io.Origin(0.0, 0.0))
+        self.lanelet_map, load_errors = lanelet2.io.loadRobust(map_file_path, projector)
+        assert not load_errors
+
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
 
     
