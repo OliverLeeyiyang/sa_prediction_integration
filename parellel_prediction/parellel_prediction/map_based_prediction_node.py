@@ -69,6 +69,8 @@ sampling_time_interval = 0.5
 min_crosswalk_user_velocity = 1.0
 delta_yaw_threshold_for_searching_lanelet_ = 0.785
 dist_threshold_for_searching_lanelet_ = 3.0
+sigma_lateral_offset_ = 0.5
+sigma_yaw_angle_deg_ = 5.0
 # Maybe use Node.declare_parameter() to get parameters from launch file
 
 
@@ -139,6 +141,7 @@ class ParellelPathGeneratorNode(Node):
         map_file_path = Map_Path
         self.ml = MapLoader(map_file_path)
         self.lanelet_map = self.ml.load_map_for_prediction()
+        # TODO: register ID
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
 
         self.all_lanelets = self.query_laneletLayer(self.lanelet_map)
@@ -146,7 +149,7 @@ class ParellelPathGeneratorNode(Node):
         walkways = self.query_walkwayLanelets(self.all_lanelets)
         self.crosswalks_ = crosswalks
         self.crosswalks_.extend(walkways)
-        print('crosswalks: ', self.crosswalks_)
+        # print('crosswalks: ', self.crosswalks_)
 
     
 
@@ -428,9 +431,9 @@ class ParellelPathGeneratorNode(Node):
     def query_subtypeLanelets(self, lls: ConstLanelets, subtype) -> ConstLanelets:
         subtype_lanelets: ConstLanelets() = []
         for ll in lls:
-            print(ll.attributes)
-            #if ll.attributes["Subtype"] == subtype:
-            #   subtype_lanelets.append(ll)
+            # print(ll.attributes)
+            if ll.attributes["subtype"] == subtype:
+                subtype_lanelets.append(ll)
         
         return subtype_lanelets
 
@@ -455,7 +458,7 @@ class ParellelPathGeneratorNode(Node):
         return self.query_subtypeLanelets(lls, "walkway")
     
 
-    # TODO: finish this method
+    # TODO: test
     def getCurrentLanelets(self, object: TrackedObject) -> LaneletsData:
         # obstacle point
         search_point = BasicPoint2d(object.kinematics.pose_with_covariance.pose.position.x, object.kinematics.pose_with_covariance.pose.position.y)
@@ -482,11 +485,8 @@ class ParellelPathGeneratorNode(Node):
         return closest_lanelets
     
 
-    def checkCloseLaneletCondition(self):
-        pass
-
     # TODO: test
-    def check_close_lanelet_condition(self, lanelet, object: TrackedObject, search_point: BasicPoint2d) -> bool:
+    def checkCloseLaneletCondition(self, lanelet, object: TrackedObject, search_point: BasicPoint2d) -> bool:
         # Step1. If we only have one point in the centerline, we will ignore the lanelet
         if len(lanelet[1].centerline) <= 1:
             return False
@@ -500,7 +500,7 @@ class ParellelPathGeneratorNode(Node):
         object_id = self.tu.toHexString(object.object_id)
         if object_id in self.objects_history_:
             possible_lanelet = self.objects_history_[object_id][-1].future_possible_lanelets
-
+            # TODO: check if this is correct
             not_in_possible_lanelet:bool = lanelet[1] in possible_lanelet
             if possible_lanelet and not_in_possible_lanelet:
                 return False
@@ -522,11 +522,48 @@ class ParellelPathGeneratorNode(Node):
         return False
 
 
-    def isDuplicated(self):
-        pass
+    # TODO: test
+    def isDuplicated(self, target_lanelet, lanelets_data: LaneletsData) -> bool:
+        CLOSE_LANELET_THRESHOLD = 0.1
+        for lanelet_data in lanelets_data:
+            target_lanelet_end_p = target_lanelet[1].centerline2d[-1]
+            lanelet_end_p = lanelet_data.lanelet.centerline2d[-1]
+            dist = np.hypot(target_lanelet_end_p.x - lanelet_end_p.x, target_lanelet_end_p.y - lanelet_end_p.y)
 
-    def calculateLocalLikelihood(self):
-        pass
+            if dist < CLOSE_LANELET_THRESHOLD:
+                return True
+        
+        return False
+    
+    # TODO: test
+    def calculateLocalLikelihood(self, current_lanelet: Lanelet, object: TrackedObject) -> float:
+        obj_point = object.kinematics.pose_with_covariance.pose.position
+
+        # compute yaw difference between the object and lane
+        obj_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
+        lane_yaw = self.tu.getLaneletAngle(current_lanelet, obj_point)
+        delta_yaw = obj_yaw - lane_yaw
+        abs_norm_delta_yaw = abs(self.tu.normalizeRadian(delta_yaw))
+
+        # compute lateral distance
+        centerline = current_lanelet.centerline
+        converted_centerline = []
+        for p in centerline:
+            converted_p = self.tu.toGeomMsgPt(p)
+            converted_centerline.append(converted_p)
+        
+        lat_dist = abs(self.tu.calcLateralOffset(converted_centerline, obj_point))
+
+        # Compute Chi-squared distributed (Equation (8) in the paper)
+        sigma_d = sigma_lateral_offset_
+        sigma_yaw = math.pi * sigma_yaw_angle_deg_ / 180.0
+        delta = np.array([lat_dist, abs_norm_delta_yaw])
+        P_inv = np.array([[1.0 / (sigma_d * sigma_d), 0.0], [0.0, 1.0 / (sigma_yaw * sigma_yaw)]])
+        MINIMUM_DISTANCE = 1e-6
+        dist = np.maximum(np.dot(delta, np.dot(P_inv, delta)), MINIMUM_DISTANCE)
+
+        return np.float32(1.0 / dist)
+        
 
 
 def main(args=None):

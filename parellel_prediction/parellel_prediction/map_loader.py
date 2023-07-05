@@ -31,6 +31,7 @@ class MapLoader:
             #    return map
             print("MGRS is not supported")
         elif lanelet2_map_projector_type == "UTM":
+            # TODO: try to load this from yaml file!
             map_origin_lat = 35.23808753540768
             map_origin_lon = 139.9009591876285
             position = GPSPoint(map_origin_lat, map_origin_lon)

@@ -8,7 +8,7 @@ import tf_transformations
 import math
 import numpy as np
 
-from lanelet2.core import ConstLanelet, BasicPoint2d, ConstLineString3d, LineString3d, Point3d, getId
+from lanelet2.core import ConstLanelet, BasicPoint2d, ConstLineString3d, LineString3d, Point3d, getId, ConstPoint3d, ConstPoint2d
 import lanelet2.geometry as l2_geom
 
 
@@ -333,6 +333,18 @@ class Tier4Utils():
             return value
 
         return value - math.copysign(2 * math.pi, value)
+    
+
+    # TODO: test
+    def toGeomMsgPt(self, src) -> gmsgs.Point:
+        if type(src) == ConstPoint3d:
+            return gmsgs.Point(x=src.x(), y=src.y(), z=src.z())
+        elif type(src) == ConstPoint2d:
+            return gmsgs.Point(x=src.x(), y=src.y(), z=0.0)
+        elif type(src) == gmsgs.Point32:
+            return gmsgs.Point(x=src.x, y=src.y, z=src.z)
+        else:
+            return gmsgs.Point(x=src.x, y=src.y, z=src.z)
 
 
 
