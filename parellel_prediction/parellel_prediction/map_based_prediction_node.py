@@ -28,9 +28,12 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from typing import List
 from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets, AttributeMap, BasicPoint2d
-# print(dir(ConstLanelet.leftBound))
+
 from lanelet2.routing import RoutingGraph
 import lanelet2.traffic_rules as traffic_rules
+import lanelet2.geometry as l2_geom
+print(dir(lanelet2.geometry))
+# ['ArcCoordinates','approximatedLength2d', 'area', 'boundingBox2d', 'boundingBox3d', 'distance', 'distanceToCenterline2d', 'distanceToCenterline3d', 'distanceToLines', 'equals', 'findNearest', 'findWithin2d', 'findWithin3d', 'follows', 'fromArcCoordinates', 'inside', 'interpolatedPointAtDistance', 'intersectCenterlines2d', 'intersection', 'intersects2d', 'intersects3d', 'leftOf', 'length', 'length2d', 'length3d', 'nearestPointAtDistance', 'overlaps2d', 'overlaps3d', 'project', 'projectedPoint3d', 'rightOf', 'to2D', 'to3D', 'toArcCoordinates']
 import numpy as np
 
 # Data structure
@@ -64,11 +67,14 @@ pareller_output_topic = '/parellel/objects'
 time_horizon = 10.0
 sampling_time_interval = 0.5
 min_crosswalk_user_velocity = 1.0
+delta_yaw_threshold_for_searching_lanelet_ = 0.785
+dist_threshold_for_searching_lanelet_ = 3.0
 # Maybe use Node.declare_parameter() to get parameters from launch file
 
 
 # load params from yaml file
 Map_Path = '/home/oliver/ma_prediction_integration/src/maps/sample-map-planning-modi/lanelet2_map.osm'
+
 
 
 
@@ -134,6 +140,13 @@ class ParellelPathGeneratorNode(Node):
         self.ml = MapLoader(map_file_path)
         self.lanelet_map = self.ml.load_map_for_prediction()
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
+
+        self.all_lanelets = self.query_laneletLayer(self.lanelet_map)
+        crosswalks = self.query_crosswalkLanelets(self.all_lanelets)
+        walkways = self.query_walkwayLanelets(self.all_lanelets)
+        self.crosswalks_ = crosswalks
+        self.crosswalks_.extend(walkways)
+        print('crosswalks: ', self.crosswalks_)
 
     
 
@@ -411,7 +424,7 @@ class ParellelPathGeneratorNode(Node):
                         self.get_linestring_at_y(2+index),
                         self.get_linestring_at_y(0+index)) """
 
-
+    # TODO: finish this method
     def query_subtypeLanelets(self, lls: ConstLanelets, subtype) -> ConstLanelets:
         subtype_lanelets: ConstLanelets() = []
         for ll in lls:
@@ -448,10 +461,10 @@ class ParellelPathGeneratorNode(Node):
         search_point = BasicPoint2d(object.kinematics.pose_with_covariance.pose.position.x, object.kinematics.pose_with_covariance.pose.position.y)
 
         # nearest lanelet
-        surrounding_lanelets = self.findNearest(self.lanelet_map.laneletLayer, search_point, 10)
+        surrounding_lanelets = l2_geom.findNearest(self.lanelet_map.laneletLayer, search_point, 10)
 
         # No Closest Lanelets
-        if not surrounding_lanelets:
+        if len(surrounding_lanelets) == 0:
             return []
         
         closest_lanelets: LaneletsData = []
@@ -467,6 +480,53 @@ class ParellelPathGeneratorNode(Node):
         closest_lanelets.append(closest_lanelet)
 
         return closest_lanelets
+    
+
+    def checkCloseLaneletCondition(self):
+        pass
+
+    # TODO: test
+    def check_close_lanelet_condition(self, lanelet, object: TrackedObject, search_point: BasicPoint2d) -> bool:
+        # Step1. If we only have one point in the centerline, we will ignore the lanelet
+        if len(lanelet[1].centerline) <= 1:
+            return False
+
+        # Step2. Check if the obstacle is inside of this lanelet
+        if not l2_geom.inside(lanelet[1], search_point):
+            return False
+
+        # If the object is in the objects history, we check if the target lanelet is
+        # inside the current lanelets id or following lanelets
+        object_id = self.tu.toHexString(object.object_id)
+        if object_id in self.objects_history_:
+            possible_lanelet = self.objects_history_[object_id][-1].future_possible_lanelets
+
+            not_in_possible_lanelet:bool = lanelet[1] in possible_lanelet
+            if possible_lanelet and not_in_possible_lanelet:
+                return False
+
+        # Step3. Calculate the angle difference between the lane angle and obstacle angle
+        object_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
+        lane_yaw = lanelet.utils.getLaneletAngle(lanelet[1], object.kinematics.pose_with_covariance.pose.position)
+        delta_yaw = object_yaw - lane_yaw
+        normalized_delta_yaw = self.tu.normalizeRadian(delta_yaw)
+        abs_norm_delta = abs(normalized_delta_yaw)
+
+        # Step4. Check if the closest lanelet is valid, and add all
+        # of the lanelets that are below max_dist and max_delta_yaw
+        object_vel = object.kinematics.twist_with_covariance.twist.linear.x
+        is_yaw_reversed = (math.pi - delta_yaw_threshold_for_searching_lanelet_ < abs_norm_delta and object_vel < 0.0)
+        if lanelet[0] < dist_threshold_for_searching_lanelet_ and (is_yaw_reversed or abs_norm_delta < delta_yaw_threshold_for_searching_lanelet_):
+            return True
+
+        return False
+
+
+    def isDuplicated(self):
+        pass
+
+    def calculateLocalLikelihood(self):
+        pass
 
 
 def main(args=None):

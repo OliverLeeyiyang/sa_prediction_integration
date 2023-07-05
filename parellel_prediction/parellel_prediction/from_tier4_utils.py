@@ -8,6 +8,9 @@ import tf_transformations
 import math
 import numpy as np
 
+from lanelet2.core import ConstLanelet, BasicPoint2d, ConstLineString3d, LineString3d, Point3d, getId
+import lanelet2.geometry as l2_geom
+
 
 
 class Tier4Utils():
@@ -286,6 +289,50 @@ class Tier4Utils():
 
         cross_vec = np.cross(segment_vec, target_vec)
         return cross_vec[2] / np.linalg.norm(segment_vec)
+    
+    # TODO: test
+    def getLaneletAngle(self, lanelet: ConstLanelet, search_point: gmsgs.Point) -> float:
+        llt_search_point = BasicPoint2d(search_point.x, search_point.y)
+        segment = self.getClosestSegment(llt_search_point, lanelet.centerline)
+
+        return math.atan2(segment[1].y - segment[0].y, segment[1].x - segment[0].x)
+    
+    # TODO: test
+    def getClosestSegment(self, search_pt: BasicPoint2d, linestring: ConstLineString3d) -> ConstLineString3d:
+        if len(linestring) < 2:
+            raise LineString3d()
+        
+        # closest_segment: ConstLineString3d()
+        min_distance = float("inf")
+
+        for i in range(1, len(linestring)):
+            prev_basic_pt = linestring[i - 1].basicPoint()
+            current_basic_pt = linestring[i].basicPoint()
+
+            prev_pt = Point3d(
+                0, prev_basic_pt.x(), prev_basic_pt.y(), prev_basic_pt.z()
+            )
+            current_pt = Point3d(
+                0, current_basic_pt.x(), current_basic_pt.y(), current_basic_pt.z()
+            )
+
+            current_segment = LineString3d(0, [prev_pt, current_pt])
+            distance = l2_geom.distance2d(l2_geom.to2D(current_segment).basicLineString, search_pt)
+            if distance < min_distance:
+                closest_segment = current_segment
+                min_distance = distance
+
+        return closest_segment
+    
+    # TODO: test
+    def normalizeRadian(self, rad: float, min_rad: float = -math.pi) -> float:
+        max_rad = min_rad + 2 * math.pi
+        value = rad % (2 * math.pi)
+
+        if min_rad <= value < max_rad:
+            return value
+
+        return value - math.copysign(2 * math.pi, value)
 
 
 
