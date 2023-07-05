@@ -16,7 +16,8 @@ import lanelet2.geometry as l2_geom
 class Tier4Utils():
     '''Methods for map_based_prediction_node.'''
     def __init__(self):
-        print('Tier4Utils class is ready!')
+        # print('Tier4Utils class is ready!')
+        pass
     
 
     # Methods:

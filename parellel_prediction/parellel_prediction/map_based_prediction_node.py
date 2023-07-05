@@ -32,8 +32,11 @@ from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineStr
 from lanelet2.routing import RoutingGraph
 import lanelet2.traffic_rules as traffic_rules
 import lanelet2.geometry as l2_geom
-print(dir(lanelet2.geometry))
-# ['ArcCoordinates','approximatedLength2d', 'area', 'boundingBox2d', 'boundingBox3d', 'distance', 'distanceToCenterline2d', 'distanceToCenterline3d', 'distanceToLines', 'equals', 'findNearest', 'findWithin2d', 'findWithin3d', 'follows', 'fromArcCoordinates', 'inside', 'interpolatedPointAtDistance', 'intersectCenterlines2d', 'intersection', 'intersects2d', 'intersects3d', 'leftOf', 'length', 'length2d', 'length3d', 'nearestPointAtDistance', 'overlaps2d', 'overlaps3d', 'project', 'projectedPoint3d', 'rightOf', 'to2D', 'to3D', 'toArcCoordinates']
+# print(dir(lanelet2.geometry))
+# ['ArcCoordinates','approximatedLength2d', 'area', 'boundingBox2d', 'boundingBox3d', 'distance', 'distanceToCenterline2d', 'distanceToCenterline3d', 'distanceToLines',
+#  'equals', 'findNearest', 'findWithin2d', 'findWithin3d', 'follows', 'fromArcCoordinates', 'inside', 'interpolatedPointAtDistance', 'intersectCenterlines2d', 
+# 'intersection', 'intersects2d', 'intersects3d', 'leftOf', 'length', 'length2d', 'length3d', 'nearestPointAtDistance', 'overlaps2d', 'overlaps3d', 'project', 
+# 'projectedPoint3d', 'rightOf', 'to2D', 'to3D', 'toArcCoordinates']
 import numpy as np
 
 # Data structure
@@ -145,11 +148,16 @@ class ParellelPathGeneratorNode(Node):
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
 
         self.all_lanelets = self.query_laneletLayer(self.lanelet_map)
+        self.get_logger().info('[Parellel Map Based Prediction]: Id is registered!')
         crosswalks = self.query_crosswalkLanelets(self.all_lanelets)
         walkways = self.query_walkwayLanelets(self.all_lanelets)
         self.crosswalks_ = crosswalks
         self.crosswalks_.extend(walkways)
         # print('crosswalks: ', self.crosswalks_)
+        
+        self.traffic_rules = traffic_rules.create(traffic_rules.Locations.Germany, traffic_rules.Participants.Vehicle)
+        self.routing_graph = RoutingGraph(self.lanelet_map, self.traffic_rules)
+        self.get_logger().info('[Parellel Map Based Prediction]: Routing graph is created!')
 
     
 
@@ -385,23 +393,11 @@ class ParellelPathGeneratorNode(Node):
 
 
     # Following methods are for lanelet2 utils
-    """ def fromBinMsg(self, msg: map_msgs.HADMapBin):
+    def fromBinMsg(self, msg: map_msgs.HADMapBin):
         if self.lanelet_map is None:
             print("map is null pointer!")
             return
         
-        # Method1
-        data_str = str(msg.data)
-        print('data_str: ', data_str[-1000:])
-        # data_stream = io.BytesIO(data_str)
-        # n = pickle.load(data_stream)
-        # print('numbers: ', n)
-        
-        map = pickle.loads(data_str)
-        id = pickle.loads(data_str)
-        print(id)
-        # Method2
-        # data_str = [str(num) for num in msg.data.tolist()]
         data_list = msg.data.tolist()
         for d in data_list:
             a_lanelet = self.get_a_lanelet(d)
@@ -414,18 +410,9 @@ class ParellelPathGeneratorNode(Node):
         self.get_logger().info('[Parellel Map Based Prediction]: Id is registered!')
         
         self.traffic_rules = traffic_rules.create(traffic_rules.Locations.Germany, traffic_rules.Participants.Vehicle)
-        # self.routing_graph = RoutingGraph(self.lanelet_map, self.traffic_rules)
-        self.get_logger().info('[Parellel Map Based Prediction]: Routing graph is created!') """
+        self.routing_graph = RoutingGraph(self.lanelet_map, self.traffic_rules)
+        self.get_logger().info('[Parellel Map Based Prediction]: Routing graph is created!')
     
-
-    """ def get_linestring_at_y(self, y):
-        return LineString3d(getId(), [Point3d(getId(), i, y, 0) for i in range(0, 3)])
-    
-
-    def get_a_lanelet(self, index=0):
-        return Lanelet(getId(),
-                        self.get_linestring_at_y(2+index),
-                        self.get_linestring_at_y(0+index)) """
 
     # TODO: finish this method
     def query_subtypeLanelets(self, lls: ConstLanelets, subtype) -> ConstLanelets:
@@ -445,6 +432,8 @@ class ParellelPathGeneratorNode(Node):
             return lanelets
         
         for ll in ll_map.laneletLayer:
+            # Try to register the lanelet id here
+            registerId(ll.id)
             lanelets.append(ll)
         
         return lanelets
