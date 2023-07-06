@@ -32,11 +32,6 @@ from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineStr
 from lanelet2.routing import RoutingGraph
 import lanelet2.traffic_rules as traffic_rules
 import lanelet2.geometry as l2_geom
-# print(dir(lanelet2.geometry))
-# ['ArcCoordinates','approximatedLength2d', 'area', 'boundingBox2d', 'boundingBox3d', 'distance', 'distanceToCenterline2d', 'distanceToCenterline3d', 'distanceToLines',
-#  'equals', 'findNearest', 'findWithin2d', 'findWithin3d', 'follows', 'fromArcCoordinates', 'inside', 'interpolatedPointAtDistance', 'intersectCenterlines2d', 
-# 'intersection', 'intersects2d', 'intersects3d', 'leftOf', 'length', 'length2d', 'length3d', 'nearestPointAtDistance', 'overlaps2d', 'overlaps3d', 'project', 
-# 'projectedPoint3d', 'rightOf', 'to2D', 'to3D', 'toArcCoordinates']
 import numpy as np
 
 # Data structure
@@ -144,10 +139,9 @@ class ParellelPathGeneratorNode(Node):
         map_file_path = Map_Path
         self.ml = MapLoader(map_file_path)
         self.lanelet_map = self.ml.load_map_for_prediction()
-        # TODO: register ID
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
 
-        self.all_lanelets = self.query_laneletLayer(self.lanelet_map)
+        self.all_lanelets = self.query_laneletLayer(self.lanelet_map) # also rigister Id in this method
         self.get_logger().info('[Parellel Map Based Prediction]: Id is registered!')
         crosswalks = self.query_crosswalkLanelets(self.all_lanelets)
         walkways = self.query_walkwayLanelets(self.all_lanelets)
@@ -205,7 +199,6 @@ class ParellelPathGeneratorNode(Node):
 
         # Didn't do: debug_markers line 592
 
-        # Deal with each object
         for object in in_objects.objects:
             # seems like this is not necessary
             object_id = self.tu.toHexString(object.object_id)
@@ -223,6 +216,7 @@ class ParellelPathGeneratorNode(Node):
             # get tracking label and update it for the prediction
             tracking_label = transformed_object.classification[0].label
             label = self.changeLabelForPrediction(tracking_label)
+            self.get_logger().info('[Parellel Map Based Prediction]: label for prediction: ' + str(label))
 
             # TODO: For crosswalk user, don't consider this situation now.(line 612)
             if label == ObjectClassification.PEDESTRIAN or label == ObjectClassification.BICYCLE:

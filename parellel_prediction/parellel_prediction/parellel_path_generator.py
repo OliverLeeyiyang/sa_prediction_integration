@@ -26,15 +26,15 @@ from .from_tier4_utils import Tier4Utils
 from typing import List, Tuple, TypedDict
 # Can use a class to setup this type. 
 # Or use TypeDict <https://docs.python.org/3/library/typing.html#other-special-directives>
-FrenetPoint = TypedDict('FrenetPoint', {'s': float, 'd': float, 's_vel': float, 'd_vel': float, 's_acc': float, 'd_acc': float})
-#class FrenetPoint:
-#    def __init__(self, s: float, d: float, s_vel: float, d_vel: float, s_acc: float, d_acc: float):
-#        self.s = s
-#        self.d = d
-#        self.s_vel = s_vel
-#        self.d_vel = d_vel
-#        self.s_acc = s_acc
-#        self.d_acc = d_acc
+# FrenetPoint = TypedDict('FrenetPoint', {'s': float, 'd': float, 's_vel': float, 'd_vel': float, 's_acc': float, 'd_acc': float})
+class FrenetPoint:
+    def __init__(self, s: float, d: float, s_vel: float, d_vel: float, s_acc: float, d_acc: float):
+        self.s = s
+        self.d = d
+        self.s_vel = s_vel
+        self.d_vel = d_vel
+        self.s_acc = s_acc
+        self.d_acc = d_acc
 
 FrenetPath = List[FrenetPoint]
 Vector2d = Tuple[float, float]
@@ -43,7 +43,6 @@ PosePath = List[gmsgs.Pose] # PosePath cannot be instantiated as a class, can be
 
 
 # F_dtype = [('s', np.float64), ('d', np.float64), ('s_vel', np.float64), ('d_vel', np.float64), ('s_acc', np.float64), ('d_acc', np.float64)]
-# FrenetPoint = type('FrenetPoint', (np.ndarray,), {'__repr__': lambda self: f'FrenePoint({self.s}, {self.d}, {self.s_vel}, {self.d_vel}, {self.s_acc}, {self.d_acc})'})
 # FrenetPath is a list of FrenetPoint
 # FrenetPath = type('FrenetPath', (FrenePoint,), {'__repr__': lambda self: f'FrenetPath({self.FrenetPath})'})
 
@@ -138,19 +137,19 @@ class PathGenerator():
         # path.reserve(static_cast<size_t>(duration / sampling_time_interval_));
         t = 0.0
         while t <= duration:
-            d_next = current_point['d'] + current_point['d_vel']*t + 0*2*t**2 + lat_coeff[0][0]*t**3 + lat_coeff[1][0]*t**4 + lat_coeff[2][0]*t**5
-            s_next = current_point['s'] + current_point['s_vel']*t + 0*2*t**2 + lon_coeff[0][0]*t**3 + lon_coeff[1][0]*t**4
+            d_next = current_point.d + current_point.d_vel*t + 0*2*t**2 + lat_coeff[0][0]*t**3 + lat_coeff[1][0]*t**4 + lat_coeff[2][0]*t**5
+            s_next = current_point.s + current_point.s_vel*t + 0*2*t**2 + lon_coeff[0][0]*t**3 + lon_coeff[1][0]*t**4
             if s_next > max_length:
                 break
 
             # We assume the object is traveling at a constant speed along s direction
             point = FrenetPoint()
-            point['s'] = np.maximum(s_next, 0.0)
-            point['s_vel'] = current_point['s_vel']
-            point['s_acc'] = current_point['s_acc']
-            point['d'] = d_next
-            point['d_vel'] = current_point['d_vel']
-            point['d_acc'] = current_point['d_acc']
+            point.s = np.maximum(s_next, 0.0)
+            point.s_vel = current_point.s_vel
+            point.s_acc = current_point.s_acc
+            point.d = d_next
+            point.d_vel = current_point.d_vel
+            point.d_acc = current_point.d_acc
             path.append(point)
 
             t += self.sampling_time_interval
@@ -187,9 +186,9 @@ class PathGenerator():
         A_lat_inv = np.matrix([[10/(T**3), -4/(T**2), 1/(2*T)],
                            [-15/(T**4), 7/(T**3), -1/(T**2)],
                            [6/(T**5), -3/(T**4),  1/(2*T**3)]])
-        b_lat = np.matrix([[target_point['d'] - current_point['d'] - current_point['d_vel'] * T],
-                        [target_point['d_vel'] - current_point['d_vel']],
-                        [target_point['d_acc']]])
+        b_lat = np.matrix([[target_point.d - current_point.d - current_point.d_vel * T],
+                        [target_point.d_vel - current_point.d_vel],
+                        [target_point.d_acc]])
         result = A_lat_inv * b_lat
 
         return result
@@ -209,7 +208,7 @@ class PathGenerator():
         '''
         A_lon_inv = np.matrix([[1/(T**2), -1/(3*T)],
                            [-1/(2*T**3), 1/(4*T**2)]])
-        b_lon = np.matrix([[target_point['s_vel'] - current_point['s_vel']],
+        b_lon = np.matrix([[target_point.s_vel - current_point.s_vel],
                         [0.0]])
         result = A_lon_inv * b_lon
 
@@ -230,7 +229,7 @@ class PathGenerator():
             # Frenet Point from frenet predicted path
             frenet_point = frenet_predicted_path[i]
             # Converted Pose
-            predicted_pose = self.tu.calcoffsetpose(ref_pose, 0.0, frenet_point['d'], 0.0)
+            predicted_pose = self.tu.calcoffsetpose(ref_pose, 0.0, frenet_point.d, 0.0)
             predicted_pose.position.z = object.kinematics.pose_with_covariance.pose.position.z
 
             if i == 0:
@@ -257,12 +256,12 @@ class PathGenerator():
         lane_yaw = self.tu.getYawFromQuaternion(ref_path[nearest_segment_idx].orientation)
         delta_yaw = obj_yaw - lane_yaw
 
-        frenet_point['s'] = self.tu.calcSignedArcLength(ref_path, 0, nearest_segment_idx) + l
-        frenet_point['d'] = self.tu.calcLateralOffset(ref_path, obj_point)
-        frenet_point['s_vel'] = vx * np.cos(delta_yaw) - vy * np.sin(delta_yaw)
-        frenet_point['d_vel'] = vx * np.sin(delta_yaw) + vy * np.cos(delta_yaw)
-        frenet_point['s_acc'] = 0.0
-        frenet_point['d_acc'] = 0.0
+        frenet_point.s = self.tu.calcSignedArcLength(ref_path, 0, nearest_segment_idx) + l
+        frenet_point.d = self.tu.calcLateralOffset(ref_path, obj_point)
+        frenet_point.s_vel = vx * np.cos(delta_yaw) - vy * np.sin(delta_yaw)
+        frenet_point.d_vel = vx * np.sin(delta_yaw) + vy * np.cos(delta_yaw)
+        frenet_point.s_acc = 0.0
+        frenet_point.d_acc = 0.0
 
 
 
