@@ -162,6 +162,8 @@ class Tier4Utils():
         Segment is straight path between two continuous points of trajectory.
 
         When point is on a trajectory point whose index is nearest_idx, return nearest_idx - 1.
+
+        When input is a gmsgs.pose, write a new method(trajactory.hpp line 380)
         '''
         nearest_idx = self.findNearestIndex(points, point)
 
@@ -169,9 +171,17 @@ class Tier4Utils():
             return 0
         if nearest_idx == len(points) - 1:
             return len(points) - 2
+        
+        signed_length = self.calcLongitudinalOffsetToSegment(points, nearest_idx, point)
+
+        if signed_length <= 0:
+            return nearest_idx - 1
+        
+        return nearest_idx
 
     # test passed
     def findNearestIndex(self, points, point: gmsgs.Point) -> int:
+        '''When input is a gmsgs.pose, write a new method(trajactory.hpp line 380)'''
         self.validateNonEmpty(points)
 
         min_dist = float('inf')
@@ -258,6 +268,7 @@ class Tier4Utils():
                 raise RuntimeError("Same points are given.")
             
         seg_idx = self.findNearestSegmentIndex(overlap_removed_points, p_target)
+        # print("seg_idx: ", seg_idx)
 
         return self.calcLateralOffset_later(points, p_target, seg_idx, throw_exception)
     
@@ -311,14 +322,14 @@ class Tier4Utils():
             current_basic_pt = linestring[i].basicPoint()
 
             prev_pt = Point3d(
-                0, prev_basic_pt.x(), prev_basic_pt.y(), prev_basic_pt.z()
+                0, prev_basic_pt.x, prev_basic_pt.y, prev_basic_pt.z
             )
             current_pt = Point3d(
-                0, current_basic_pt.x(), current_basic_pt.y(), current_basic_pt.z()
+                0, current_basic_pt.x, current_basic_pt.y, current_basic_pt.z
             )
 
             current_segment = LineString3d(0, [prev_pt, current_pt])
-            distance = l2_geom.distance2d(l2_geom.to2D(current_segment).basicLineString, search_pt)
+            distance = l2_geom.distance(l2_geom.to2D(current_segment), search_pt) # Maybe don't need to use basicLineString
             if distance < min_distance:
                 closest_segment = current_segment
                 min_distance = distance
@@ -339,13 +350,22 @@ class Tier4Utils():
     # TODO: test
     def toGeomMsgPt(self, src) -> gmsgs.Point:
         if type(src) == ConstPoint3d:
-            return gmsgs.Point(x=src.x(), y=src.y(), z=src.z())
+            return gmsgs.Point(x=src.x, y=src.y, z=src.z)
         elif type(src) == ConstPoint2d:
-            return gmsgs.Point(x=src.x(), y=src.y(), z=0.0)
+            return gmsgs.Point(x=src.x, y=src.y, z=0.0)
         elif type(src) == gmsgs.Point32:
             return gmsgs.Point(x=src.x, y=src.y, z=src.z)
         else:
             return gmsgs.Point(x=src.x, y=src.y, z=src.z)
+    
+
+    def createPoint(self, x: float, y: float, z: float) -> gmsgs.Point:
+        p = gmsgs.Point()
+        p.x = x
+        p.y = y
+        p.z = z
+
+        return p
 
 
 

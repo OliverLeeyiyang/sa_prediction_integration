@@ -27,7 +27,7 @@ import tf_transformations
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from typing import List
-from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets, AttributeMap, BasicPoint2d
+from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets, AttributeMap, BasicPoint2d, ConstLineString2d
 
 from lanelet2.routing import RoutingGraph
 import lanelet2.traffic_rules as traffic_rules
@@ -37,10 +37,29 @@ import numpy as np
 # Data structure
 class LaneletData:
     def __init__(self):
-        self.lanelet = Lanelet()
+        self.lanelet: Lanelet()
         self.probability: float
 
 LaneletsData = List[LaneletData]
+
+class LateralKinematicsToLanelet:
+    def __init__(self):
+        self.dist_from_left_boundary = 0.0
+        self.dist_from_right_boundary = 0.0
+        self.left_lateral_velocity = 0.0
+        self.right_lateral_velocity = 0.0
+        self.filtered_left_lateral_velocity = 0.0
+        self.filtered_right_lateral_velocity = 0.0
+
+class ObjectData:
+    def __init__(self):
+        self.header: smsgs.Header
+        self.current_lanelets: ConstLanelets
+        self.future_possible_lanelets: ConstLanelets
+        self.pose: gmsgs.Pose
+        self.twist: gmsgs.Twist
+        self.time_delay: float
+        self.lateral_kinematics_set = {} # key: ConstLanelet, value: LateralKinematicsToLanelet
 
 # Local imports
 from .parellel_path_generator import PathGenerator
@@ -65,10 +84,25 @@ pareller_output_topic = '/parellel/objects'
 time_horizon = 10.0
 sampling_time_interval = 0.5
 min_crosswalk_user_velocity = 1.0
+
+# Not used so far
+enable_delay_compensation_ = True
+prediction_time_horizon_ = 10.0
+prediction_sampling_time_interval_ = 0.5
+min_velocity_for_map_based_prediction_ = 1.0
+min_crosswalk_user_velocity_ = 1.0
+object_buffer_time_length_ = 2.0
+history_time_length_ = 1.0
+dist_threshold_to_bound_ = 1.0  # 1.0m
+time_threshold_to_bound_ = 5.0  # 5.0s
+reference_path_resolution_ = 0.5
+
+# Used parameters
 delta_yaw_threshold_for_searching_lanelet_ = 0.785
 dist_threshold_for_searching_lanelet_ = 3.0
 sigma_lateral_offset_ = 0.5
 sigma_yaw_angle_deg_ = 5.0
+cutoff_freq_of_velocity_lpf_ = 0.1 # 0.1Hz
 # Maybe use Node.declare_parameter() to get parameters from launch file
 
 
@@ -160,7 +194,7 @@ class ParellelPathGeneratorNode(Node):
         pass
 
     # This methods won't be used because we can't use boost in python
-    """ def map_callback(self, msg: map_msgs.HADMapBin):
+    def map_callback(self, msg: map_msgs.HADMapBin):
         self.get_logger().info('[Parellel Map Based Prediction]: Start loading lanelet')
         self.fromBinMsg(msg)
         self.get_logger().info('[Parellel Map Based Prediction]: Map is loaded')
@@ -170,7 +204,7 @@ class ParellelPathGeneratorNode(Node):
         walkways = self.query_walkwayLanelets(self.all_lanelets)
         self.crosswalks_ = crosswalks
         self.crosswalks_.extend(walkways)
-        print('crosswalks: ', self.crosswalks_) """
+        print('crosswalks: ', self.crosswalks_)
 
 
     def object_callback(self, in_objects: TrackedObjects):
@@ -215,8 +249,8 @@ class ParellelPathGeneratorNode(Node):
 
             # get tracking label and update it for the prediction
             tracking_label = transformed_object.classification[0].label
-            label = self.changeLabelForPrediction(tracking_label)
-            self.get_logger().info('[Parellel Map Based Prediction]: label for prediction: ' + str(label))
+            label = self.changeLabelForPrediction(tracking_label, object, self.lanelet_map)
+            # self.get_logger().info('[Parellel Map Based Prediction]: label for prediction: ' + str(label))
 
             # TODO: For crosswalk user, don't consider this situation now.(line 612)
             if label == ObjectClassification.PEDESTRIAN or label == ObjectClassification.BICYCLE:
@@ -234,6 +268,7 @@ class ParellelPathGeneratorNode(Node):
 
                 # TODO: Get Closest Lanelet (line 624)
                 current_lanelets = self.getCurrentLanelets(transformed_object)
+                # print('current_lanelets: ', current_lanelets)
 
                 # TODO: Update Objects History (line 627) **important for prediction**
                 self.updateObjectsHistory(output.header, transformed_object, current_lanelets)
@@ -347,9 +382,79 @@ class ParellelPathGeneratorNode(Node):
             del self.objects_history_[key]
 
 
-    # TODO: line 1049
+    # TODO: test
     def updateObjectsHistory(self, header: smsgs.Header, object: TrackedObject, current_lanelets_data: LaneletsData):
-        pass
+        object_id = self.tu.toHexString(object.object_id)
+        current_lanelets = self.getLanelets(current_lanelets_data)
+
+        single_object_data = ObjectData()
+        single_object_data.header = header
+        single_object_data.current_lanelets = current_lanelets
+        single_object_data.future_possible_lanelets = current_lanelets
+        single_object_data.pose = object.kinematics.pose_with_covariance.pose
+
+        object_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
+        single_object_data.pose.orientation = self.tu.createQuaternionFromYaw(object_yaw)
+        single_object_data.time_delay = abs(self.get_clock().now().to_msg().seconds_nanoseconds() - header.stamp.to_msg().seconds_nanoseconds())
+        single_object_data.twist = object.kinematics.twist_with_covariance.twist
+
+        # Init lateral kinematics
+        for current_lane in current_lanelets:
+            lateral_kinematics: LateralKinematicsToLanelet = self.initLateralKinematics(current_lane, single_object_data.pose)
+            single_object_data.lateral_kinematics_set[current_lane] = lateral_kinematics
+        
+        if object_id not in self.objects_history_:
+            # New Object(Create a new object in object histories)
+            object_data = [single_object_data]
+            self.objects_history_[object_id] = object_data
+        else:
+            # Object that is already in the object buffer
+            object_data = self.objects_history_[object_id]
+            # get previous object data and update
+            prev_object_data = object_data[-1]
+            self.updateLateralKinematicsVector(prev_object_data, single_object_data, self.routing_graph, cutoff_freq_of_velocity_lpf_)
+
+            object_data.append(single_object_data)
+    
+
+    # TODO: test
+    def getLanelets(self, data: LaneletsData) -> ConstLanelets:
+        lanelets: ConstLanelets = []
+        for lanelet_data in data:
+            lanelets.append(lanelet_data.lanelet)
+        
+        return lanelets
+    
+    # TODO: test
+    def initLateralKinematics(self, lanelet: ConstLanelet, pose: gmsgs.Pose) -> LateralKinematicsToLanelet:
+        lateral_kinematics = LateralKinematicsToLanelet()
+        left_bound = lanelet.leftBound()
+        right_bound = lanelet.rightBound()
+        left_dist = self.calcAbsLateralOffset(left_bound, pose)
+        right_dist = self.calcAbsLateralOffset(right_bound, pose)
+
+        # calc boundary distance
+        lateral_kinematics.dist_from_left_boundary = left_dist
+        lateral_kinematics.dist_from_right_boundary = right_dist
+
+        # velocities are not init in the first step
+        lateral_kinematics.left_lateral_velocity = 0
+        lateral_kinematics.right_lateral_velocity = 0
+        lateral_kinematics.filtered_left_lateral_velocity = 0
+        lateral_kinematics.filtered_right_lateral_velocity = 0
+
+        return lateral_kinematics;
+    
+
+    # TODO: test
+    def calcAbsLateralOffset(self, boundary_line: ConstLineString2d, search_pose: gmsgs.Pose) -> float:
+        boundary_path = []
+        for point in boundary_line:
+            x = point.x
+            y = point.y
+            boundary_path.append(self.tu.createPoint(x, y, 0.0))
+        
+        return abs(self.tu.calcLateralOffset(boundary_path, search_pose.position))
 
 
     # TODO: finish this method for case 2 and 3. And input lanelet_map_ptr should be lanelet::LaneletMapPtr
@@ -460,10 +565,10 @@ class ParellelPathGeneratorNode(Node):
             if not self.checkCloseLaneletCondition(lanelet, object, search_point) or self.isDuplicated(lanelet, closest_lanelets):
                 continue
         
-        closest_lanelet = LaneletData()
-        closest_lanelet.lanelet = lanelet[1]
-        closest_lanelet.probability = self.calculateLocalLikelihood(lanelet[1], object)
-        closest_lanelets.append(closest_lanelet)
+            closest_lanelet = LaneletData()
+            closest_lanelet.lanelet = lanelet[1]
+            closest_lanelet.probability = self.calculateLocalLikelihood(lanelet[1], object)
+            closest_lanelets.append(closest_lanelet)
 
         return closest_lanelets
     
@@ -490,7 +595,7 @@ class ParellelPathGeneratorNode(Node):
 
         # Step3. Calculate the angle difference between the lane angle and obstacle angle
         object_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
-        lane_yaw = lanelet.utils.getLaneletAngle(lanelet[1], object.kinematics.pose_with_covariance.pose.position)
+        lane_yaw = self.tu.getLaneletAngle(lanelet[1], object.kinematics.pose_with_covariance.pose.position)
         delta_yaw = object_yaw - lane_yaw
         normalized_delta_yaw = self.tu.normalizeRadian(delta_yaw)
         abs_norm_delta = abs(normalized_delta_yaw)
@@ -509,8 +614,8 @@ class ParellelPathGeneratorNode(Node):
     def isDuplicated(self, target_lanelet, lanelets_data: LaneletsData) -> bool:
         CLOSE_LANELET_THRESHOLD = 0.1
         for lanelet_data in lanelets_data:
-            target_lanelet_end_p = target_lanelet[1].centerline2d[-1]
-            lanelet_end_p = lanelet_data.lanelet.centerline2d[-1]
+            target_lanelet_end_p = target_lanelet[1].centerline[-1]
+            lanelet_end_p = lanelet_data.lanelet.centerline[-1]
             dist = np.hypot(target_lanelet_end_p.x - lanelet_end_p.x, target_lanelet_end_p.y - lanelet_end_p.y)
 
             if dist < CLOSE_LANELET_THRESHOLD:
