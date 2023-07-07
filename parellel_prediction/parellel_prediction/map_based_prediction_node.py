@@ -27,9 +27,9 @@ import tf_transformations
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from typing import List
-from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, createMapFromLanelets, AttributeMap, BasicPoint2d, ConstLineString2d
+from lanelet2.core import LaneletMap, ConstLanelet, Lanelet, registerId, LineString3d, Point3d, getId, BasicPoint2d, ConstLineString2d
 
-from lanelet2.routing import RoutingGraph
+from lanelet2.routing import RoutingGraph, RelationType
 import lanelet2.traffic_rules as traffic_rules
 import lanelet2.geometry as l2_geom
 import numpy as np
@@ -189,10 +189,6 @@ class ParellelPathGeneratorNode(Node):
 
     
 
-    # line 152
-    def updateLateralKinematicsVector(self):
-        pass
-
     # This methods won't be used because we can't use boost in python
     def map_callback(self, msg: map_msgs.HADMapBin):
         self.get_logger().info('[Parellel Map Based Prediction]: Start loading lanelet')
@@ -223,7 +219,7 @@ class ParellelPathGeneratorNode(Node):
             return
         
         # Remove old objects information in object history(line 582) TODO: test this
-        objects_detected_time = Time.from_msg(in_objects.header.stamp).seconds_nanoseconds()
+        objects_detected_time = self.tu.to_cpp_seconds(Time.from_msg(in_objects.header.stamp).seconds_nanoseconds())
         self.removeOldObjectsHistory(objects_detected_time)
 
         # result output
@@ -354,7 +350,7 @@ class ParellelPathGeneratorNode(Node):
         return object
     
 
-    def removeOldObjectsHistory(self, current_time: Time):
+    def removeOldObjectsHistory(self, current_time: float):
         invalid_object_id = []
         for object_id, object_data in self.objects_history_.items():
             # If object data is empty, we are going to delete the buffer for the obstacle
@@ -362,7 +358,7 @@ class ParellelPathGeneratorNode(Node):
                 invalid_object_id.append(object_id)
                 continue
 
-            latest_object_time = object_data[-1].header.stamp.to_msg().seconds_nanoseconds()
+            latest_object_time = self.tu.to_cpp_seconds(Time.from_msg(object_data[-1].header.stamp).seconds_nanoseconds())
 
             # Delete Old Objects
             if current_time - latest_object_time > 2.0:
@@ -370,9 +366,13 @@ class ParellelPathGeneratorNode(Node):
                 continue
 
             # Delete old information
-            while object_data and current_time - object_data[0].header.stamp.to_msg().seconds_nanoseconds() > 2.0:
-                # Delete Old Position
-                object_data.popleft()
+            while object_data:
+                post_object_time = self.tu.to_cpp_seconds(Time.from_msg(object_data[0].header.stamp).seconds_nanoseconds())
+                if current_time - post_object_time > 2.0:
+                    # Delete Old Position
+                    del object_data[0]
+                else:
+                    break
 
             if not object_data:
                 invalid_object_id.append(object_id)
@@ -395,7 +395,11 @@ class ParellelPathGeneratorNode(Node):
 
         object_yaw = self.tu.getYawFromQuaternion(object.kinematics.pose_with_covariance.pose.orientation)
         single_object_data.pose.orientation = self.tu.createQuaternionFromYaw(object_yaw)
-        single_object_data.time_delay = abs(self.get_clock().now().to_msg().seconds_nanoseconds() - header.stamp.to_msg().seconds_nanoseconds())
+        # same as cpp file in line 1063
+        time_now_in_seconds = self.tu.to_cpp_seconds(self.get_clock().now().seconds_nanoseconds())
+        time_header_in_seconds = self.tu.to_cpp_seconds(Time.from_msg(header.stamp).seconds_nanoseconds())
+        single_object_data.time_delay = abs(time_now_in_seconds - time_header_in_seconds)
+
         single_object_data.twist = object.kinematics.twist_with_covariance.twist
 
         # Init lateral kinematics
@@ -416,6 +420,56 @@ class ParellelPathGeneratorNode(Node):
 
             object_data.append(single_object_data)
     
+    # line 152
+    def updateLateralKinematicsVector(self, prev_obj: ObjectData, current_obj: ObjectData, routing_graph: RoutingGraph, lowpass_cutoff: float):
+        current_stamp_time = self.tu.to_cpp_seconds(Time.from_msg(current_obj.header.stamp).seconds_nanoseconds())
+        prev_stamp_time = self.tu.to_cpp_seconds(Time.from_msg(prev_obj.header.stamp).seconds_nanoseconds())
+        dt = current_stamp_time - prev_stamp_time
+
+        if dt < 1e-6:
+            return # do not update
+        
+        for current_lane, current_lateral_kinematics in current_obj.lateral_kinematics_set.items():
+            # 1. has same lanelet
+            if current_lane in prev_obj.lateral_kinematics_set:
+                prev_lateral_kinematics = prev_obj.lateral_kinematics_set[current_lane]
+                self.calcLateralKinematics(prev_lateral_kinematics, current_lateral_kinematics, dt, lowpass_cutoff)
+                break
+
+            # 2. successive lanelet
+            for prev_lane, prev_lateral_kinematics in prev_obj.lateral_kinematics_set.items():
+                # The usage of routingRelation is different from the cpp file
+                successive_lanelet = (RoutingGraph.routingRelation(routing_graph, prev_lane, current_lane) == RelationType.Successor)
+                
+                if successive_lanelet: # lanelet can be connected
+                    self.calcLateralKinematics(prev_lateral_kinematics, current_lateral_kinematics, dt, lowpass_cutoff) # calc velocity
+                    break
+
+
+    def calcLateralKinematics(self, prev_lateral_kinematics: LateralKinematicsToLanelet, current_lateral_kinematics: LateralKinematicsToLanelet, dt: float, cutoff: float):
+        # calc velocity via backward difference
+        current_lateral_kinematics.left_lateral_velocity = (current_lateral_kinematics.dist_from_left_boundary - prev_lateral_kinematics.dist_from_left_boundary) / dt
+        current_lateral_kinematics.right_lateral_velocity = (current_lateral_kinematics.dist_from_right_boundary - prev_lateral_kinematics.dist_from_right_boundary) / dt
+
+        # low pass filtering left velocity: default cut_off is 0.6 Hz
+        current_lateral_kinematics.filtered_left_lateral_velocity = self.FirstOrderLowpassFilter(
+            prev_lateral_kinematics.filtered_left_lateral_velocity,
+            prev_lateral_kinematics.left_lateral_velocity, current_lateral_kinematics.left_lateral_velocity,
+            dt, cutoff)
+        current_lateral_kinematics.filtered_right_lateral_velocity = self.FirstOrderLowpassFilter(
+            prev_lateral_kinematics.filtered_right_lateral_velocity,
+            prev_lateral_kinematics.right_lateral_velocity,
+            current_lateral_kinematics.right_lateral_velocity, dt, cutoff)
+
+
+    def FirstOrderLowpassFilter(self, prev_y: float, prev_x: float, x: float, sampling_time: float = 0.1, cutoff_freq: float = 0.1) -> float:
+        # Eq:  yn = a yn-1 + b (xn-1 + xn)
+        wt = 2.0 * math.pi * cutoff_freq * sampling_time
+        a = (2.0 - wt) / (2.0 + wt)
+        b = wt / (2.0 + wt)
+
+        return a * prev_y + b * (prev_x + x)
+
 
     # TODO: test
     def getLanelets(self, data: LaneletsData) -> ConstLanelets:
@@ -428,8 +482,8 @@ class ParellelPathGeneratorNode(Node):
     # TODO: test
     def initLateralKinematics(self, lanelet: ConstLanelet, pose: gmsgs.Pose) -> LateralKinematicsToLanelet:
         lateral_kinematics = LateralKinematicsToLanelet()
-        left_bound = lanelet.leftBound()
-        right_bound = lanelet.rightBound()
+        left_bound = lanelet.leftBound
+        right_bound = lanelet.rightBound
         left_dist = self.calcAbsLateralOffset(left_bound, pose)
         right_dist = self.calcAbsLateralOffset(right_bound, pose)
 

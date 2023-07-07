@@ -151,7 +151,19 @@ class TestClass(Node):
         print('ab is:', ab)
         ac = pickle.loads(ab)
         print('type ac is:', type(ac))
-        print('ac is:', ac)
+        print('ac is:', ac)\
+        
+    def test_time(self):
+        from rclpy.time import Time
+        time1 = self.get_clock().now()
+        print('time1 is:', time1)
+        time2 = time1.seconds_nanoseconds()
+        print('time2 is:', time2)
+        time3 = time2[0]
+        print('time3 is:', time3)
+        self.tu = Tier4Utils()
+        time4 = self.tu.to_cpp_seconds(time2)
+        print('time4 is:', time4)
 
 
 
@@ -166,7 +178,8 @@ def main(args=None):
     
     #tc.test_method_in_selfutils()
     # tc.test_geopandas()
-    tc.test_map()
+    # tc.test_map()
+    tc.test_time()
 
     # rclpy.spin(tc)
 

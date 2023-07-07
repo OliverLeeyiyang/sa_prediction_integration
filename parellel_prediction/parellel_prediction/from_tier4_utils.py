@@ -366,6 +366,10 @@ class Tier4Utils():
         p.z = z
 
         return p
+    
+    # This will return the seconds in float, which is same as the .seconds() in rclcpp
+    def to_cpp_seconds(self, nano_seconds_tuple) -> float:
+        return nano_seconds_tuple[0] + nano_seconds_tuple[1] * 1e-9
 
 
 
