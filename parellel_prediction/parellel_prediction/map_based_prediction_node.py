@@ -264,13 +264,16 @@ class ParellelPathGeneratorNode(Node):
 
                 # TODO: Get Closest Lanelet (line 624)
                 current_lanelets = self.getCurrentLanelets(transformed_object)
-                # print('current_lanelets: ', current_lanelets)
+                # if len(current_lanelets) > 0:
+                #     print('current_lanelets: ', current_lanelets[0].lanelet)
 
                 # TODO: Update Objects History (line 627) **important for prediction**
                 self.updateObjectsHistory(output.header, transformed_object, current_lanelets)
 
                 # TODO: For off lane obstacles
-                if current_lanelets is None:
+                if len(current_lanelets) == 0:
+                    # test
+                    print('off lane object detected')
                     predicted_path = self.pg.generatePathForOffLaneVehicle(transformed_object)
                     predicted_path.confidence = 1.0
                     if predicted_path.path is None:
@@ -386,6 +389,8 @@ class ParellelPathGeneratorNode(Node):
     def updateObjectsHistory(self, header: smsgs.Header, object: TrackedObject, current_lanelets_data: LaneletsData):
         object_id = self.tu.toHexString(object.object_id)
         current_lanelets = self.getLanelets(current_lanelets_data)
+        # test
+        # print("current_lanelets updated: ", current_lanelets)
 
         single_object_data = ObjectData()
         single_object_data.header = header
@@ -405,6 +410,8 @@ class ParellelPathGeneratorNode(Node):
         # Init lateral kinematics
         for current_lane in current_lanelets:
             lateral_kinematics: LateralKinematicsToLanelet = self.initLateralKinematics(current_lane, single_object_data.pose)
+            # test
+            # print("lateral_kinematics: ", lateral_kinematics)
             single_object_data.lateral_kinematics_set[current_lane] = lateral_kinematics
         
         if object_id not in self.objects_history_:
@@ -419,6 +426,7 @@ class ParellelPathGeneratorNode(Node):
             self.updateLateralKinematicsVector(prev_object_data, single_object_data, self.routing_graph, cutoff_freq_of_velocity_lpf_)
 
             object_data.append(single_object_data)
+            self.objects_history_[object_id] = object_data
     
     # line 152
     def updateLateralKinematicsVector(self, prev_obj: ObjectData, current_obj: ObjectData, routing_graph: RoutingGraph, lowpass_cutoff: float):
